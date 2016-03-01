@@ -64,13 +64,13 @@ A typical enrichment and aggregation process would look like:
 
 Time series construction:
 
-`$ ./series_builder.py -i tweets.pkl -o time_series.csv -r rules.json`
+`$ ./series_builder.py -i tweets.pkl -o time_series.csv -r rules.json -b day`
 
 Trend detection (see [Gnip-Trend-Detection](https://github.com/jeffakolb/Gnip-Trend-Detection) for details).
 
-`$ [GNIP-TREND-DETECTION-LOCATION]/analyze_all_rules.py -c trend_config.cfg -i data.csv -e data_analyzed.pkl -r -a -p`
+`$ [GNIP-TREND-DETECTION-LOCATION]/analyze_all_rules.py -c trend_config.cfg -i time_series.csv -e data_analyzed.pkl -r -a -p`
 
-`$ ./detector.py -t 1.0 data_analyzed.pkl`
+`$ ./detector.py -t 1.0 -i data_analyzed.pkl`
 
 Conversation insights:
 
