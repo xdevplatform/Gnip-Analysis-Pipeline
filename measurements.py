@@ -7,20 +7,36 @@ m = []
 
 """
 
-This file is just a bunch of class definitions,
-each of which defines a particular measurement..
+This file is just a bunch of class definitions, each of which defines a
+particular measurement.
 
-All classes appended to "m" will be run on all tweets;
-by calling the 'add_tweet' method. This method is defined
-in MeasurementBase and applies any filters
-as described below. If a tweet passes all filters, it is
-passed to the 'update' method.
+Each class must implement the following methods:
+    add_tweet(dict: tweet)
+    get()
 
-All classes inheriting from MeasurementBase must
-define or inherit the methods:
- - update:
-    udpates internal data store; no return value
- - get:
+The 'add_tweet' function is the entry point; it takes a dict representing a
+tweet. The 'get' function is the exit; it returns a representation of the
+current state of the measurement. 
+
+All classes appended to the list "m" will be run on all tweets, by calling the
+'add_tweet' method. Simple example measurements can be found at the bottom of
+this file.
+
+
+Base class:
+
+MeasurementBase is a base class that defines 'add_tweet' such that the
+measurement is only updated by tweets passing a set of filters, as defined
+below.  If a tweet passes all filters, it is passed to the 'update' method,
+which must be implemented in the child class. MeasurementBase also provides a
+naming function, 'get_name'.
+
+Usage:
+
+All classes inheriting from MeasurementBase must define or inherit the methods:
+ - update(dict: tweet):
+    udpates internal data store with tweet; no return value
+ - get():
     returns a representation of internal data store
 
 Measurements can be selectively applied to tweets by
@@ -326,3 +342,26 @@ for rule_tag,rule_name in rules:
     globals()[cls_name] = cls_def
     m.append(cls_def)
 
+## simple measurement examples
+#
+# just uncomment to test
+#
+## reset measurement list
+#m = []
+#
+#class TweetCounter(object):
+#    def __init__(self):
+#        self.counter = 0
+#    def add_tweet(tweet):
+#        self.counter += 1
+#    def get():
+#        return self.counter
+#
+#class ReTweetCounter(object):
+#    def __init__(self):
+#        self.counter = 0
+#    def add_tweet(tweet):
+#        if tweet.verb == 'share':
+#            self.counter += 1
+#    def get():
+#        return self.counter
