@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
 import sys
-import ujson as json
 import datetime
 import pickle
 import argparse
 
-from measurements import m as imported_measurements
+try:
+    import ujson as json 
+except ImportError:
+    import json
+
+from gnip_analysis_pipeline.measurements import m as imported_measurements
 
 """
 Make measurements on Tweets, bucketed by a time interval.

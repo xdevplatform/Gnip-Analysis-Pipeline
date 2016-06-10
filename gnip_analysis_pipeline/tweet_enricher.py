@@ -1,18 +1,25 @@
 #!/usr/bin/env python
 
-import sys
-import ujson as json
 import importlib
+try:
+    import ujson as json
+except ImportError:
+    import json
+import sys
 
 module_name_list = [
-        "test_module"
+        "test",
         ]
 
 ## fill this list with ordered instances of all enriching classes
 full_class_list = []
 for module_name in module_name_list:
     ## import by str
-    module = importlib.import_module("enrichments." + module_name)
+    try:
+        module = importlib.import_module("gnip_analysis_pipeline.enrichments." + module_name) 
+    except ImportError, e:
+        sys.stderr.write('Error importing an enriching module: {}\n'.format(module_name)) 
+        sys.exit()
     for class_name in module.class_list:
         ## instantiate and add to list
         full_class_list.append(getattr(module,class_name)())
@@ -29,4 +36,7 @@ for line in sys.stdin:
 
     for cls_instance in full_class_list:
         cls_instance.enrich(tweet)
-    sys.stdout.write(json.dumps(tweet) + '\n')
+    try:
+        sys.stdout.write(json.dumps(tweet) + '\n') 
+    except IOError:
+        break
