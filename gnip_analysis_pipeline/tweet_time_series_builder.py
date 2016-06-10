@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 
 import sys
-import ujson as json
 import datetime
 import pickle
 import argparse
 
-from measurements import m as imported_measurements
+try:
+    import ujson as json 
+except ImportError:
+    import json
+
+from gnip_analysis_pipeline.measurements import m as imported_measurements
 
 """
-Make measurements on Tweets, bucketed by a time interval.
+Make counts of things in Tweets, bucketed by a time interval.
 """
 
 parser = argparse.ArgumentParser()
@@ -86,8 +90,6 @@ if not args.keep_empty_entries:
 
 # output
 
-output_format_str = "%Y%m%d%H%M%S"
-
 if args.bucket_size == "hour":
     time_bucket_size_in_sec = 3600 
     dt_format = "%Y%m%d%H"
@@ -103,15 +105,16 @@ else:
 
 output_list = []
 for time_bucket_key,measurements in data.items():
-    time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_format).strftime(output_format_str)
+    # the format of this string must be parsable by dateutil.parser.parse
+    time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_format).strftime('%Y%m%d%H%M%S')
     for meas in measurements:
-        csv_string = '{0:d},{1:s},{2},{3},{4}'.format(int(time_bucket_start),
+        csv_string = '{0:d},{1},{2},{3:s}'.format(int(time_bucket_start),
+                time_bucket_size_in_sec,
                 # note: trend input reader splits on ','
                 # choice of '-' is arbitrary!
-                meas.get_name().replace(',','-'), 
                 meas.get(),
-                -1,
-                time_bucket_size_in_sec)
+                meas.get_name().replace(',','-'), 
+                )
         output_list.append(csv_string)
 
 output_str = '\n'.join(sorted(output_list))
