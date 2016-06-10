@@ -1,71 +1,118 @@
 #!/usr/bin/env python
 
-import json
 import sys
-import pickle
-import operator
-import ConfigParser
+import ujson as json
 import datetime
+import pickle
 import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-i","--input-files",dest="input_file_list",default=["data/data.pkl"],nargs="+")
-parser.add_argument("-o","--output-file",dest="output_file",default="data/time_series.csv")
-parser.add_argument("-c","--config-file",dest="config_file",default=None)
-parser.add_argument("-r","--rules-output-file",dest="rules_output",default="rules.json")
-parser.add_argument("-b","--bucket-unit",dest="bucket_unit",default="hour")
-parser.add_argument("-n","--normalization",dest="norm_file_name",default=None,help="file format: [YYYYmmdd],[VOLUME]")
-args = parser.parse_args()
+from measurements import m as imported_measurements
 
-if args.bucket_unit == "day":
-    bucket_size_in_sec = 3600*24
-    dt_format="%Y%m%d"
-else:
-    bucket_size_in_sec = 3600
-    dt_format="%Y%m%d%H"
+"""
+Make measurements on Tweets, bucketed by a time interval.
+"""
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-b','--bucket-size',dest='bucket_size',default="day",help="bucket size: hour, day, week")
+parser.add_argument('-e','--keep-empty-entries',dest='keep_empty_entries',action="store_true",default=False,help="print empty instances")
+args = parser.parse_args() 
+
+fmt_str = "%Y-%m-%dT%H:%M:%S.000Z"
+
+def get_hour_time_bucket(tweet_time):
+    time_bucket_key = "{0:04d}{1:02d}{2:02d}{3:02d}".format(tweet_time.year
+            ,tweet_time.month
+            ,tweet_time.day
+            ,tweet_time.hour
+            )
+    return time_bucket_key
+def get_day_time_bucket(tweet_time):
+    time_bucket_key = "{0:04d}{1:02d}{2:02d}".format(tweet_time.year
+            ,tweet_time.month
+            ,tweet_time.day
+            )
+    return time_bucket_key
+# TODO
+#def get_week_time_bucket(tweet_time):
+
+#def get_month_time_bucket(tweet_time):
+#    time_bucket_key = "{0:04d}{1:02d}".format(tweet_time.year
+#            ,tweet_time.month
+#            )
+#    return time_bucket_key
+
+get_time_bucket = locals()["get_"+args.bucket_size +"_time_bucket"]
+
+measurements = []
+measurements.extend(imported_measurements)
 
 data = {}
-for f in args.input_file_list:
+
+for item in sys.stdin:
     try:
-        data.update(pickle.load(open(f)))
-    except (IOError,EOFError):
-        pass
-output = open(args.output_file,"w")
+        tweet = json.loads(item) 
+    except ValueError:
+        sys.stderr.write("BAD TWEET: " + item + '\n')
+        continue
 
-## determine output datetime format from GTD config file
-if args.config_file is not None:
-    cp = ConfigParser.ConfigParser()
-    cp.read(args.config_file)
-    output_format_str = cp.get("rebin","input_dt_format")
+    ## throw away Tweets without times (compliance activities)
+    if "postedTime" not in tweet:
+        continue
+    
+    ## get time bucket and corresponding data objects
+    tweet_time = datetime.datetime.strptime(tweet["postedTime"],fmt_str)
+    time_bucket_key = get_time_bucket(tweet_time)
+    
+    ## for a new time bucket, we need to initialize the data objects
+    if time_bucket_key not in data:
+        data[time_bucket_key] = []
+        for meas in measurements:
+            data[time_bucket_key].append( meas() )
+        
+    data_bucket = data[time_bucket_key] 
+
+    ## update all the measurements 
+    for meas in data_bucket:
+        meas.add_tweet(tweet)
+
+
+if not args.keep_empty_entries:
+    for meas in measurements:
+        empty_instance = meas()
+        for key,instance_list in data.items():
+            for instance in instance_list:
+                if instance.get() == 0:
+                    data[key].remove(instance)
+
+# output
+
+output_format_str = "%Y%m%d%H%M%S"
+
+if args.bucket_size == "hour":
+    time_bucket_size_in_sec = 3600 
+    dt_format = "%Y%m%d%H"
+elif args.bucket_size == "day":
+    time_bucket_size_in_sec = 3600*24    
+    dt_format = "%Y%m%d"
+#elif args.bucket_size == "week":
+#    time_bucket_size_in_sec = 3600*24*7 
+#    dt_format = "%Y"
 else:
-    output_format_str = "%Y%m%d%H%M%S"
-
-## auxilliary task: build rules.json for use with GTD
-rules = set()
-
-norm_factors = {}
-if args.norm_file_name is not None:
-    with open(args.norm_file_name) as f:
-        for line in f:
-            norm_factors[line.split(",")[0]] = line.split(",")[1]
+    # some sort of exception 
+    raise Exception('not really a thing') 
 
 output_list = []
-for time_bucket,time_bucket_data in data.items():
-    time_bucket_start = datetime.datetime.strptime(time_bucket,dt_format).strftime(output_format_str)
-    for m in time_bucket_data:
-        rules.add(m.get_name())
-        result = m.get()
-        if isinstance(result,int) or isinstance(result,float):
-            value = m.get()
-            if args.norm_file_name is not None:
-                value = value/float(norm_factors[time_bucket[0:8]])
-            measurement_str = "{},{},{},{},{}".format(time_bucket_start,m.get_name(),value,-1,bucket_size_in_sec)
-            output_list.append(measurement_str)
+for time_bucket_key,measurements in data.items():
+    time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_format).strftime(output_format_str)
+    for meas in measurements:
+        csv_string = '{0:d},{1:s},{2},{3},{4}'.format(int(time_bucket_start),
+                # note: trend input reader splits on ','
+                # choice of '-' is arbitrary!
+                meas.get_name().replace(',','-'), 
+                meas.get(),
+                -1,
+                time_bucket_size_in_sec)
+        output_list.append(csv_string)
 
 output_str = '\n'.join(sorted(output_list))
-output.write(output_str + '\n')
-
-#i# build and dump rules file
-rules_dict = {}
-rules_dict["rules"] = [{"value":rule} for rule in rules]
-json.dump(rules_dict,open(args.rules_output,"w"))
+sys.stdout.write(output_str + '\n')
