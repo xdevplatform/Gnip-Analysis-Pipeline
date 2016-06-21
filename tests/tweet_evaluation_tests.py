@@ -45,6 +45,9 @@ class AnalysisTests(unittest.TestCase):
         # ground truth from setUp() 
         self.assertEqual(results['tweet_count'],self.generator_length_truth)
 
+    #
+    # conversation analyses
+    #
     def test_body_term_count(self):
         """ inject body with a predetermined number of test tokens """
         # configure results structure
