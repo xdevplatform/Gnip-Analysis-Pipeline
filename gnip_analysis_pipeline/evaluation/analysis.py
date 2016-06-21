@@ -11,12 +11,15 @@ import uuid
 import datetime
 
 def weight_and_screennames():
-    return {"weight": 0, "screennames": set([])}
+    return {"weight": 1, "screennames": set([])}
 
 logger = logging.getLogger("analysis")
 
 def setup_analysis(conversation = False, audience = False):
-    """create the results dictionary"""
+    """
+    Created placeholders for quantities of interest in results 
+    structure; return results data structure (dict).
+    """
     results = {
             "tweet_count": 0,
             "non-tweet_lines": 0,

@@ -3,8 +3,8 @@ import json
 import os
 import subprocess
 
-import gnip_tweet_evaluation
-import evaluate_tweets
+from gnip_analysis_pipeline import tweet_evaluator
+from gnip_analysis_pipeline.evaluation import analysis, output 
 
 INPUT_FILE_NAME = 'dummy_tweets.json'
 
@@ -22,16 +22,30 @@ class InputTests(unittest.TestCase):
         self.assertEqual(None,self.generator_length_err) 
 
     def test_conversation_length(self):
-        conversation_results = {"unique_id": "TEST"}
-        evaluate_tweets.run_analysis(self.generator, conversation_results, None)
-        
-        self.assertEqual(conversation_results['tweet_count'],self.generator_length_truth)
+        # configure results structure
+        results = analysis.setup_analysis(conversation=True)
+        # is this id necessary for testing?
+        results["unique_id"] = "TEST"
+        # run analysis code (including conversation) 
+        tweet_evaluator.run_analysis(self.generator, results)
+        # ground truth from setUp() 
+        self.assertEqual(results['tweet_count'],self.generator_length_truth)
     
     def test_audience_length(self):
-        audience_results = {"unique_id": "TEST"}
-        user_ids = evaluate_tweets.run_analysis(self.generator, None, audience_results) 
-        
-        self.assertEqual(audience_results['tweet_count'],len(user_ids)) 
+        # configure results structure
+        results = analysis.setup_analysis(audience=True)
+        # is this id necessary for testing?
+        results["unique_id"] = "TEST"
+        # run analysis code (including audience) for user ids 
+        user_ids = tweet_evaluator.run_analysis(self.generator, results) 
+
+        # get ground truth (# unique user ids) from test data file
+        p1 = subprocess.Popen(['cat', INPUT_FILE_NAME], stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(['python', '-c', 'import sys; import json; print len(set([json.loads(i)["actor"]["id"] for i in sys.stdin]))'], stdin=p1.stdout, stdout=subprocess.PIPE)
+        p1.stdout.close()
+        out, err = p2.communicate()
+        shell_user_count = int(out)
+        self.assertEqual(shell_user_count, len(user_ids)) 
 
 class AnalysisTests(unittest.TestCase):
     def setUp(self):
@@ -40,38 +54,58 @@ class AnalysisTests(unittest.TestCase):
         for line in open(INPUT_FILE_NAME):
             self.tweets.append(json.loads(line))
 
+    #
+    # conversation analyses
+    #
     def test_body_term_count(self):
         """ inject body with a predetermined number of test tokens """
-        conversation_results = {"unique_id": "TEST"}
+        # configure results structure
+        results = analysis.setup_analysis(conversation=True)
+        # is this id necessary for testing?
+        results["unique_id"] = "TEST"
+        # use counter for verification 
         counter = 1
         for tweet in self.tweets:
             addition = " test_term"*counter
             tweet['body'] += addition
-            gnip_tweet_evaluation.analysis.analyze_tweet(tweet,conversation_results) 
+            analysis.analyze_tweet(tweet, results) 
             counter += 1
-        expected_test_count = int(conversation_results['body_term_count'].get_tokens().next()[0])
-        self.assertEqual(expected_test_count,sum(range(counter)))
-        
+        expected_test_count = int(results['body_term_count'].get_tokens().next()[0])
+        self.assertEqual(expected_test_count, sum(range(counter)))
+
+    def test_hashtag_count(self):
+        """ inject hashtags with a predetermined number of test tokens """
+        # configure results structure
+        results = analysis.setup_analysis(conversation=True)
+        # is this id necessary for testing?
+        results["unique_id"] = "TEST"
+        # use counter for verification 
+        counter = 0
+        for tweet in self.tweets:
+            tweet['twitter_entities']['hashtags'].append({"text":"notarandomhashtag"}) 
+            analysis.analyze_tweet(tweet, results) 
+            counter += 1
+        self.assertEqual(results['hashtags']['notarandomhashtag'], counter)  
+
+    #
+    # audience analyses
+    #
     def test_bio_term_count(self):
         """ inject bio with a predetermined number of test tokens """
-        audience_results = {"unique_id": "TEST"}
+        # configure results structure
+        results = analysis.setup_analysis(audience=True)
+        # is this id necessary for testing?
+        results["unique_id"] = "TEST"
+        # use counter for verification 
         counter = 1
         for tweet in self.tweets:
             addition = " test_term"*counter
             tweet['actor']['summary'] += addition
-            gnip_tweet_evaluation.analysis.analyze_bio(tweet,audience_results) 
+            analysis.analyze_tweet(tweet, results) 
             counter += 1
-        expected_test_count = int(audience_results['bio_term_count'].get_tokens().next()[0])
-        self.assertEqual(expected_test_count,sum(range(counter)))
+        expected_test_count = int(results['bio_term_count'].get_tokens().next()[0])
+        self.assertEqual(expected_test_count, sum(range(counter)))
 
-    def test_hashtag_count(self):
-        conversation_results = {"unique_id": "TEST"}
-        counter = 0
-        for tweet in self.tweets:
-            tweet['twitter_entities']['hashtags'].append({"text":"notarandomhashtag"}) 
-            gnip_tweet_evaluation.analysis.analyze_tweet(tweet,conversation_results) 
-            counter += 1
-        self.assertEqual(conversation_results['hashtags']['notarandomhashtag'],counter)  
 
 if __name__ == '__main__':
     unittest.main()
