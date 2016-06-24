@@ -11,7 +11,7 @@ import uuid
 import datetime
 
 def weight_and_screennames():
-    return {"weight": 1, "screennames": set([])}
+    return {"weight": 0, "screennames": set([])}
 
 logger = logging.getLogger("analysis")
 
