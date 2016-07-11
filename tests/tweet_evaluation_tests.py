@@ -108,6 +108,7 @@ class AnalysisTests(unittest.TestCase):
         for tweet in self.tweets:
             addition = " test_term"*counter
             tweet['actor']['summary'] += addition
+            analysis.analyze_tweet(tweet, results) 
             counter += 1
         expected_test_count = int(results['bio_term_count'].get_tokens().next()[0])
         self.assertEqual(expected_test_count, sum(range(counter)))

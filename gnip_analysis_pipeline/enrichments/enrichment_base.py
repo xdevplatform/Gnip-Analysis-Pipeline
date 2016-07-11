@@ -8,8 +8,6 @@ class BaseEnrichment(object):
     returns the enrichment value. This value must be JSON-
     serializable.
     """
-    def __init__(self):
-        pass
     def enrich(self,tweet):
         if "enrichments" not in tweet:
             tweet['enrichments'] = {}
