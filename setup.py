@@ -7,5 +7,5 @@ setup(name='gnip_analysis_pipeline',
             'gnip_analysis_pipeline/tweet_evaluator.py'
             ],
         version='0.1',
-        install_requires=['sngrams','matplotlib','pyyaml','requests','requests_oauthlib','pyfarmhash']
+        install_requires=['sngrams','matplotlib','pyyaml','requests','requests_oauthlib','pyfarmhash','nltk']
         )
