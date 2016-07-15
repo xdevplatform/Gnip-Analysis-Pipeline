@@ -94,7 +94,7 @@ def audience_api_output(audience_api_results, output_path_base):
     if 'error' not in audience_api_results:
         for i, (grouping_name, grouping_result) in enumerate(audience_api_results.items()):
             print '\n' + grouping_name + '\n' + '-' * len(grouping_name)
-            audience_api_file.write('\n' + grouping_name + '\n' + '-' * len(grouping_name))
+            audience_api_file.write('\n' + grouping_name + '\n' + '-' * len(grouping_name) + '\n')
             
             if 'errors' in grouping_result:
                 print( grouping_result['errors'][0] )
@@ -114,7 +114,7 @@ def audience_api_output(audience_api_results, output_path_base):
                 
                 for line in grouping_result_csv:
                     print line[0] + ' | ' + str(line[1]) 
-                    audience_api_file.write(line[0] + ' | ' + str(line[1]) )
+                    audience_api_file.write(line[0] + ' | ' + str(line[1]) + '\n' )
     else:
         print 'Error: ' + audience_api_results['error']
         audience_api_file.write('Error: ' + audience_api_results['error'])

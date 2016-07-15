@@ -41,10 +41,12 @@ def add_users(user_ids, unique_id, max_upload_size = 100000, max_segment_size = 
 
     segment_name_base = unique_id
 
-    unique_user_ids = list(set(user_ids))
+    unique_user_ids = list(set(user_ids)) 
+    num_user_ids = len(unique_user_ids)
     num_segments = int(ceil(len(unique_user_ids)/float(max_segment_size)))
     size_segments = int(ceil(len(unique_user_ids)/float(num_segments)))
-    
+   
+    logger.debug('{num_user_ids} user ids requires {num_segments} segments of size {size_segments}'.format(**locals()))
     for i, user_id_chunk in enumerate(chunks(unique_user_ids, size_segments)):
         logger.debug('Processing segment: ' + segment_name_base + '_' + str(i) )
         add_segment(user_id_chunk, segment_name_base + '_' + str(i), max_upload_size) 
@@ -82,8 +84,9 @@ def add_segment(user_ids, segment_name, max_upload_size = 100000):
         raise SegmentQueryException(segment_check_response.text) 
     for existing_segment in segment_check_response.json()['segments']:
         if segment_name == existing_segment['name']:
-            segment_id = existing_segment['id']  
-            logger.debug('Found segment id {}; name {}'.format(segment_id,segment_name))
+            segment_id = existing_segment['id']   
+            num_users = existing_segment['num_user_ids']
+            logger.debug('Found segment id {}; name {}, with {} user ids'.format(segment_id,segment_name,num_users))
     # if not existing, create the new segment
     if segment_id is None:
         logger.info('Segment not created; adding it')
@@ -98,12 +101,13 @@ def add_segment(user_ids, segment_name, max_upload_size = 100000):
         segment_id = segment_creation_response.json()['id']
         
         # upload the chunks of user ids to a segment
-        for uid_chunk_json_encoded in uids_json_encoded:
+        for num,uid_chunk_json_encoded in enumerate(uids_json_encoded):
             segment_post_ids = requests.post(base_url + '/segments/' + segment_id + '/ids'
                     , auth = auth
                     , headers = json_header
                     , data = uid_chunk_json_encoded
                     )
+            logger.debug('Uploaded chunk ' + str(num))
             if segment_post_ids.status_code > 299:
                 raise SegmentPostIdsException(segment_post_ids.text)
         logger.debug('segment_post_response text:\n' + segment_post_ids.text)
