@@ -104,7 +104,7 @@ def audience_api_output(audience_api_results, output_path_base):
                     if isinstance(value, dict):
                         return [ (key + ' | ' + k, v) for k, v in flatten_dict(value).items() ]
                     elif isinstance(value, list):
-                        return [] 
+                        return ['why is this happening??'] 
                     else:
                         return [(key, value)]
 

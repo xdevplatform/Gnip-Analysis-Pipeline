@@ -41,7 +41,7 @@ class AnalysisTests(unittest.TestCase):
         # is this id necessary for testing?
         results["unique_id"] = "TEST"
         # run analysis code (including conversation) 
-        tweet_evaluator.run_analysis(self.generator, results)
+        analysis.analyze_tweets(self.generator, results)
         # ground truth from setUp() 
         self.assertEqual(results['tweet_count'],self.generator_length_truth)
 
@@ -87,7 +87,8 @@ class AnalysisTests(unittest.TestCase):
         # is this id necessary for testing?
         results["unique_id"] = "TEST"
         # run analysis code (including audience) for user ids 
-        user_ids = tweet_evaluator.run_analysis(self.generator, results) 
+        analysis.analyze_tweets(self.generator, results)  
+        user_ids = results["tweets_per_user"].keys()
 
         # get ground truth (# unique user ids) from test data file
         p1 = subprocess.Popen(['cat', INPUT_FILE_NAME], stdout=subprocess.PIPE)

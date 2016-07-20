@@ -1,6 +1,6 @@
 # Overview
 
-This software reads from JSON-formatted Tweet data, enriches the tweet payloads
+This software reads JSON-formatted Tweet data, enriches the tweet payloads
 with model-based metadata, builds time series based on programmable counters,
 and returns CSV-formatted data. It also performs audience and conversation
 analysis on Tweets.
@@ -32,11 +32,13 @@ We do enrichment by piping Tweet objects to the `tweet_enricher.py` script.
 Enrichments are defined by classes that follow the pattern found in the modules
 in `gnip_analysis_pipeline/enrichments/`, namely:
 
-1. Classes must inherit from `BaseEnrichment` in
+1. Enrichment classes must inherit from `BaseEnrichment` in
    `gnip_analysis_pipeline/enrichments/enrichment_base.py`. Alternately, the
 class must define an `enrich` method that acts on a dictionary representing a
 Tweet payload, and must attach the resulting metadata to the payload. The base
-class abstracts these actions.
+class manages and hides these actions. Enrichment classes inheriting from 
+`BaseEnrichment` must implement an `enrichment_value` method that accepts at 
+Tweet payload and returns the enrichment value.
 
 2. Enrichment modules must contain a "class\_list" variable which contains the
    names of the classes to be used.  Enrichment classes can be disabled by
@@ -60,7 +62,7 @@ Counts of things are defined by measurement objects, which make one or more
 counts of things found in the Tweet payloads. We provide two simple examples of
 measurement classes in `gnip_analysis_pipeline/measurements.py`. 
 These are the default measurements. We've created
-a more robust set of objects in `gnip_analysis_pipeline/measurement_base`,
+a more robust set of objects in `gnip_analysis_pipeline/measurement_base.py`,
 including a base class the facilitates Tweet filtering, and a number of helper
 classes for extracting various payload element and making different types of
 counts.
@@ -85,8 +87,42 @@ evaluation can be for conversation (tweet bodies, hashtags, etc.), for audience
 
 We do tweet evaluation with the `tweet_evaluator.py` script. You must have
 credentials for the Audience API to get demographic model results. All results
-can be returned to txt files and to the screen. Unlike the enrichment and time
-series builder, all configuration is via command-line options.
+can be returned to txt files and to the screen. 
+
+### Relative evaluation
+
+As with the enrichment and time series builder, you can pass an addition config
+file to the evaluation sctip, with the `-s` option. This _splitting configuration_
+specifies that you a doing a _relative_ Tweet evaluation, in which the outputs
+represent the difference between two sets of Tweets. The splitting config file
+defines these two sets of Tweets by defining two functions and mapping them in a dictionary.
+
+The example in `examples/my_splitting_config.py` demonstrates the pattern:
+```python
+def analyzed_function(tweet):
+    """ dummy filtering function """
+    try:
+        if len(tweet['actor']['preferredUsername']) > 7:
+            return True
+        else:
+            return False
+    except KeyError:
+        return False
+
+def baseline_function(tweet):
+    return not analyzed_function(tweet)
+
+splitting_config = {
+    'analyzed':analyzed_function,
+    'baseline':baseline_function
+}
+```
+
+The function mapped to the 'analyzed' key selects Tweets in the analysis group,
+and the function mapped to the 'baseline' key selects the baseline group of Tweets.
+The results returned by the Audience API give the difference (in percentage) between
+the analysis and baseline groups, for categories in which both groups return results. 
+Relative results are not yet defined for other result types.
 
 # Example
 
@@ -110,10 +146,10 @@ evaluation_output.txt`
 
 ## Example configuration files
 
-You can find two example configuration files in the `example` directory. Copy them to your
+You can find three example configuration files in the `example` directory. Copy them to your
 TEST directory. They
 should be used as arguments to the `-c` option of the enrichment and time
-series scripts
+series scripts, and to the `-s` option of the evaluation script.
 
 `[TEST] $ cat dummy_tweets.json | tweet_enricher.py -c my_enrichments.py |
 tweet_time_series_builder.py -c my_measurements.py > time_series.csv`
@@ -128,4 +164,13 @@ variable. `my_measurements` contains a few new measurement class definitions:
 
 These measurements, along with a simple tweet-counting measurement, are enabled with a
 redefinition of the `measurements_list` variable. The count cutoff can also be
-defined in this file. 
+defined in this file.  
+
+For audience and conversation evaluation, `my_splitting_config.py` splits the
+users into two groups: those with user names greater that seven characters long,
+and those with users names six or less characters in length. For now, only
+the Audience API response is returned.
+
+`[TEST] $ cat dummy_tweets.json | tweet_evaluator.py -a -s my_splitting_config.py`
+
+The results are printed to stdout and to `$HOME/tweet_evaluation/` (by default). 

@@ -1,25 +1,161 @@
 import sys
-#import is
+import logging
+import uuid
+import datetime
+import collections
+import copy
 try:
     import ujson as json
 except ImportError:
     import json
-import logging
 from collections import defaultdict
-from simple_n_grams.simple_n_grams import SimpleNGrams
-import uuid
-import datetime
 
-def weight_and_screennames():
-    return {"weight": 0, "screennames": set([])}
+from simple_n_grams.simple_n_grams import SimpleNGrams
+import utils
 
 logger = logging.getLogger("analysis")
 
-def setup_analysis(conversation = False, audience = False):
+def analyze_tweets(tweets,results,splitting_config=None): 
+    """ 
+    Entry point for Tweet input.  A Tweet sequence and a results object are
+    required.
+
+    If splitting_config is supplied, this function also splits Tweets into
+    analysis and baseline group. In this case, we place each set of absolute
+    results in sub-dictionaries keyed with 'analyzed' and 'baseline'. The
+    relative results are placed in the top-level location. The results
+    object must be pre-configured, since we don't know the user's
+    audience/conversation preference in this scope.
+
+    """ 
+
+    if splitting_config is not None:
+        results_baseline = results['baseline'] 
+        results_analyzed = results['analyzed'] 
+        
+        analyzed_tweet_extractor = splitting_config['analyzed'] 
+        baseline_tweet_extractor = splitting_config['baseline'] 
+    else:
+        analyzed_tweet_extractor = lambda x: False
+        baseline_tweet_extractor = lambda x: False
+        
+    for line in tweets: 
+        # if it's not JSON, skip it
+        try:
+            tweet = json.loads(line)  
+        except ValueError:
+            continue
+        
+        # analyze each Tweet 
+        if analyzed_tweet_extractor(tweet):
+            analyze_tweet(tweet,results_analyzed) 
+        if baseline_tweet_extractor(tweet):
+            analyze_tweet(tweet,results_baseline)
+        if splitting_config is None:
+            analyze_tweet(tweet,results)
+
+    if "audience_api" in results:
+        user_ids = results["tweets_per_user"].keys()
+        analyze_user_ids(user_ids,results)
+    if splitting_config is not None:
+        user_ids_analyzed = results_analyzed["tweets_per_user"].keys()
+        user_ids_baseline = results_baseline["tweets_per_user"].keys()
+        logger.info('{} users in analysis group'.format(len(user_ids_analyzed)))
+        logger.info('{} users in baseline group'.format(len(user_ids_baseline))) 
+        analyze_user_ids(user_ids_analyzed=user_ids_analyzed,
+                results=results,
+                user_ids_baseline=user_ids_baseline
+                )
+
+def analyze_user_ids(user_ids_analyzed, results, groupings = None, user_ids_baseline = None):
+    """ 
+    Call to Audience API happens here.  All we ask from the caller are user IDs, a
+    results object, and (optionally) a grouping.
     """
-    Created placeholders for quantities of interest in results 
-    structure; return results data structure (dict).
+    import audience_api as api
+
+    if groupings is not None:
+        use_groupings = groupings
+    else:
+        grouping_dict = {"groupings": {
+            "gender": {"group_by": ["user.gender"]}
+            , "location_country": {"group_by": ["user.location.country"]}
+            , "location_country_region": {"group_by": ["user.location.country", "user.location.region"]}
+            , "interest": {"group_by": ["user.interest"]}
+            , "tv_genre": {"group_by": ["user.tv.genre"]}
+            , "device_os": {"group_by": ["user.device.os"]}
+            , "device_network": {"group_by": ["user.device.network"]}
+            , "language": {"group_by": ["user.language"]}
+        }}
+        use_groupings = json.dumps(grouping_dict)
+
+    if user_ids_baseline is not None:
+        results_baseline = results['baseline'] 
+        results_analyzed = results['analyzed']
+        results_baseline["audience_api"] = api.query_users(list(user_ids_baseline), use_groupings)
+        results_analyzed["audience_api"] = api.query_users(list(user_ids_analyzed), use_groupings) 
+
+        compare_results(results)
+
+    else:
+        results["audience_api"] = api.query_users(list(user_ids_analyzed), use_groupings)
+
+
+def compare_results(results): 
     """
+    When multiple absolute results are stored at the 'baseline' and 'analyze'
+    keys, this function computes their relative results and places them at the
+    base level.
+    """
+    
+    results_baseline = results['baseline']
+    results_analyzed = results['analyzed']
+
+    data_analyzed = results_analyzed['audience_api']
+    data_baseline = results_baseline['audience_api']
+
+    data_compared = collections.defaultdict(dict)
+    for group_name, grouping in data_analyzed.items():
+        if 'error' in grouping:
+            logger.warning(str(grouping))
+            continue
+        for key_level_1,value_level_1 in grouping.items():
+            if isinstance(value_level_1,unicode):
+                analyzed_value = float(value_level_1)
+                try:
+                    baseline_value = float(data_baseline[group_name][key_level_1])
+                    data_compared[group_name][key_level_1] = u"{0:.2f}".format(analyzed_value - baseline_value)
+                except KeyError:
+                    pass
+            elif isinstance(value_level_1,dict):
+                for key_level_2,value_level_2 in value_level_1.items():
+                    analyzed_value = float(value_level_2 )
+                    try:
+                        baseline_value = float(data_baseline[group_name][key_level_1][key_level_2]) 
+                        if key_level_1 not in data_compared[group_name]:
+                            data_compared[group_name][key_level_1] = {} 
+                        data_compared[group_name][key_level_1][key_level_2] = u"{0:.2f}".format(analyzed_value - baseline_value)
+                    except KeyError:
+                        pass
+            else:
+                sys.stderr.write("Found a value that is neither dict nor unicode str. Exiting.\n")
+                sys.exit(1)
+    results['audience_api'] = data_compared
+    
+
+def setup_analysis(conversation = False, audience = False, identifier = None, input_results = None):
+    """
+    Created placeholders for quantities of interest in results structure;
+    return results data structure.
+
+    If an identifier is specified, place the measurement accumulators at a
+    particular key.
+
+    """
+    
+    def weight_and_screennames():
+        return {"weight": 0, "screennames": set([])}
+
     results = {
             "tweet_count": 0,
             "non-tweet_lines": 0,
@@ -52,11 +188,19 @@ def setup_analysis(conversation = False, audience = False):
         results["audience_api"] = ""
 
     # in the future we could add custom fields by adding kwarg = func where func is agg/extractor and kwarg is field name
-    
-    return results
+   
+    # if an already-existing results object and an identifier are provided
+    # return the input results object with a sub-result keyed on the identifier 
+    if identifier is not None and input_results is not None:
+        input_results[identifier] = results 
+        return input_results
+    else:
+        return results
 
 def analyze_tweet(tweet, results):
-    """Add relevant data from a tweet to 'results'"""
+    """
+    Add relevant data from a tweet to 'results'
+    """
 
     ######################################
     # fields that are relevant for user-level and tweet-level analysis
@@ -170,23 +314,3 @@ def analyze_tweet(tweet, results):
             region_key = "no region available"
         results["profile_locations_regions"][country_key + " , " + region_key] += 1
     
-def analyze_user_ids(user_ids,results, groupings = None):
-    """ call to Audience API goes here """
-    import audience_api as api
-
-    if groupings is not None:
-        use_groupings = groupings
-    else:
-        grouping_dict = {"groupings": {
-            "gender": {"group_by": ["user.gender"]}
-            , "location_country": {"group_by": ["user.location.country"]}
-            , "location_country_region": {"group_by": ["user.location.country", "user.location.region"]}
-            , "interest": {"group_by": ["user.interest"]}
-            , "tv_genre": {"group_by": ["user.tv.genre"]}
-            , "device_os": {"group_by": ["user.device.os"]}
-            , "device_network": {"group_by": ["user.device.network"]}
-            , "language": {"group_by": ["user.language"]}}}
-        use_groupings = json.dumps(grouping_dict)
-
-    results["audience_api"] = api.query_users(list(user_ids), use_groupings)
-

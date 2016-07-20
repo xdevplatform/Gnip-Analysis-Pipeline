@@ -9,33 +9,21 @@ except ImportError:
 import sys
 import datetime
 import os
+import importlib
 
 from gnip_analysis_pipeline.evaluation import analysis,output
 
+"""
+Perform audience and/or conversation analysis on a set of Tweets.
+"""
+
 logger = logging.getLogger('audience_api')
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
-##
-## analysis function
-##
-
-def run_analysis(input_generator, results): 
-    """ iterate over Tweets and analyze"""
-
-    for line in input_generator: 
-        # if it's not JSON, skip it
-        try:
-            tweet = json.loads(line)  
-        except ValueError:
-            continue
-        # analyze each Tweet
-        analysis.analyze_tweet(tweet,results)
-        
-    if "audience_api" in results:
-        analysis.analyze_user_ids(results["tweets_per_user"].keys(),results)
-    
-    return results["tweets_per_user"].keys()
+logger = logging.getLogger('analysis') 
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
 if __name__ == '__main__':
     
@@ -47,9 +35,11 @@ if __name__ == '__main__':
     parser.add_argument("-a","--do-audience-analysis",dest="do_audience_analysis",action="store_true",default=False,
             help="do audience analysis on users") 
     parser.add_argument("-i","--input-file-name",dest="input_file_name",default=None,
-            help="file containing tweets, tweet IDs, or user IDs; take input from stdin if not present") 
+            help="file containing tweet data; take input from stdin if not present") 
     parser.add_argument('-o','--output-dir',dest='output_directory',default=os.environ['HOME'] + '/tweet_evaluation/',
             help='directory for output files; default is %(default)s')
+    parser.add_argument('-s','--splitting-config',dest='splitting_config',default=None,
+            help='module that contains functions on Tweets that define the "analyzed" and "baseline" sets')
     args = parser.parse_args()
 
     # get the time right now, to use in output naming
@@ -61,10 +51,21 @@ if __name__ == '__main__':
             ,time_now.day
             )
    
-    # create the output directory if it doesn't exist
-    ### 
-
-    results = analysis.setup_analysis(conversation = args.do_conversation_analysis, audience = args.do_audience_analysis) 
+    # configure the results object and manage splitting
+    splitting_config = None
+    if args.splitting_config is not None:
+        sys.path.append(os.getcwd())
+        splitting_config = importlib.import_module( args.splitting_config.rstrip('.py') ).splitting_config
+        results = analysis.setup_analysis(conversation = args.do_conversation_analysis, 
+                audience = args.do_audience_analysis,
+                identifier = 'analyzed',
+                input_results = {}) 
+        results = analysis.setup_analysis(conversation = args.do_conversation_analysis, 
+                audience = args.do_audience_analysis,
+                identifier = 'baseline',
+                input_results = results) 
+    else:
+        results = analysis.setup_analysis(conversation = args.do_conversation_analysis, audience = args.do_audience_analysis) 
 
     # manage input source
     if args.input_file_name is not None:
@@ -72,8 +73,10 @@ if __name__ == '__main__':
     else:
         input_generator = sys.stdin
 
+        # also set up the 
+
     # run analysis
-    run_analysis(input_generator, results)
+    analysis.analyze_tweets(input_generator, results, splitting_config)
 
     # dump the output
     output.dump_results(results, output_directory, args.unique_identifier)
