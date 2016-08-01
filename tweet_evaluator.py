@@ -11,7 +11,7 @@ import datetime
 import os
 import importlib
 
-from gnip_analysis_pipeline.evaluation import analysis,output
+from gnip_tweet_evaluation import analysis,output
 
 """
 Perform audience and/or conversation analysis on a set of Tweets.
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-n","--identifier",dest="unique_identifier", default='0',type=str,
-            help="a unique name to identify the conversation/audience")
+            help="a unique name to identify the conversation/audience; default is '%(default)s'")
     parser.add_argument("-c","--do-conversation-analysis",dest="do_conversation_analysis",action="store_true",default=False,
             help="do conversation analysis on Tweets")
     parser.add_argument("-a","--do-audience-analysis",dest="do_audience_analysis",action="store_true",default=False,
@@ -67,16 +67,14 @@ if __name__ == '__main__':
     else:
         results = analysis.setup_analysis(conversation = args.do_conversation_analysis, audience = args.do_audience_analysis) 
 
-    # manage input source
+    # manage input sources, file opening, and deserialization
     if args.input_file_name is not None:
-        input_generator = open(args.input_file_name)
+        tweet_generator = analysis.deserialize_tweets(open(args.input_file_name))
     else:
-        input_generator = sys.stdin
-
-        # also set up the 
+        tweet_generator = analysis.deserialize_tweets(sys.stdin)
 
     # run analysis
-    analysis.analyze_tweets(input_generator, results, splitting_config)
+    analysis.analyze_tweets(tweet_generator, results, splitting_config)
 
     # dump the output
     output.dump_results(results, output_directory, args.unique_identifier)

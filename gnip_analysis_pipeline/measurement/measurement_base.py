@@ -1,6 +1,6 @@
 import collections
 import operator
-from measurement_utils import token_ok, term_comparator
+from utils import token_ok, term_comparator
 
 """
 

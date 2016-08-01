@@ -3,8 +3,7 @@ import json
 import os
 import subprocess
 
-from gnip_analysis_pipeline import tweet_evaluator
-from gnip_analysis_pipeline.evaluation import analysis, output 
+from gnip_tweet_evaluation import analysis, output 
 
 INPUT_FILE_NAME = 'dummy_tweets.json'
 
@@ -12,24 +11,22 @@ class AnalysisTests(unittest.TestCase):
     """Tests for the evaluation.analysis module"""
     def setUp(self):
         # check input file via shell
-        self.generator = open(INPUT_FILE_NAME)  
+        self.line_generator = open(INPUT_FILE_NAME)  
         p1 = subprocess.Popen(['cat',INPUT_FILE_NAME], stdout=subprocess.PIPE)
         p2 = subprocess.Popen(['wc', '-l'], stdin=p1.stdout, stdout=subprocess.PIPE)
         p1.stdout.close()
         out, err = p2.communicate()
         self.generator_length_truth, self.generator_length_err = int(out), err
 
-        # put test tweets into a list
-        self.tweets = []
-        for line in open(INPUT_FILE_NAME):
-            self.tweets.append(json.loads(line))
-                     
+        # get a list of the test tweets
+        self.tweets = analysis.deserialize_tweets( self.line_generator )
+        
     #
     # test input file
     #
     def test_generator_length(self):
         """ check shell file length against python file object iteration"""
-        self.assertEqual(len([_ for _ in self.generator]), self.generator_length_truth)
+        self.assertEqual(len([_ for _ in self.line_generator]), self.generator_length_truth)
         self.assertEqual(None,self.generator_length_err) 
 
     #
@@ -39,9 +36,9 @@ class AnalysisTests(unittest.TestCase):
         # configure results structure
         results = analysis.setup_analysis(conversation=True)
         # is this id necessary for testing?
-        results["unique_id"] = "TEST"
+        #results["unique_id"] = "TEST"
         # run analysis code (including conversation) 
-        analysis.analyze_tweets(self.generator, results)
+        analysis.analyze_tweets(self.tweets, results)
         # ground truth from setUp() 
         self.assertEqual(results['tweet_count'],self.generator_length_truth)
 
@@ -49,7 +46,8 @@ class AnalysisTests(unittest.TestCase):
     # conversation analyses
     #
     def test_body_term_count(self):
-        """ inject body with a predetermined number of test tokens """
+        """ inject body with a predetermined number of test tokens """ 
+        pass
         # configure results structure
         results = analysis.setup_analysis(conversation=True)
         # is this id necessary for testing?
@@ -65,7 +63,8 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(expected_test_count, sum(range(counter)))
 
     def test_hashtag_count(self):
-        """ inject hashtags with a predetermined number of test tokens """
+        """ inject hashtags with a predetermined number of test tokens """ 
+        pass
         # configure results structure
         results = analysis.setup_analysis(conversation=True)
         # is this id necessary for testing?
@@ -82,12 +81,13 @@ class AnalysisTests(unittest.TestCase):
     # audience analyses
     #
     def test_audience_length(self):
+        pass
         # configure results structure
         results = analysis.setup_analysis(audience=True)
         # is this id necessary for testing?
         results["unique_id"] = "TEST"
         # run analysis code (including audience) for user ids 
-        analysis.analyze_tweets(self.generator, results)  
+        analysis.analyze_tweets(self.tweets, results)  
         user_ids = results["tweets_per_user"].keys()
 
         # get ground truth (# unique user ids) from test data file
@@ -100,6 +100,7 @@ class AnalysisTests(unittest.TestCase):
 
     def test_bio_term_count(self):
         """ inject bio with a predetermined number of test tokens """
+        pass
         # configure results structure
         results = analysis.setup_analysis(audience=True)
         # is this id necessary for testing?

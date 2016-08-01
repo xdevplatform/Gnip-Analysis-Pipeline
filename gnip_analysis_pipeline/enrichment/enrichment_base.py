@@ -9,6 +9,7 @@ class BaseEnrichment(object):
     serializable.
     """
     def enrich(self,tweet):
+        """ this function is called by tweet_enricher.py"""
         if "enrichments" not in tweet:
             tweet['enrichments'] = {}
         tweet['enrichments'][self.__class__.__name__] = self.enrichment_value(tweet)

@@ -15,9 +15,9 @@ import utils
 
 logger = logging.getLogger("analysis")
 
-def analyze_tweets(tweets,results,splitting_config=None): 
+def analyze_tweets(tweet_generator,results,splitting_config=None): 
     """ 
-    Entry point for Tweet input.  A Tweet sequence and a results object are
+    Entry point for Tweet input.  A sequence of Tweet dicts and a results object are
     required.
 
     If splitting_config is supplied, this function also splits Tweets into
@@ -39,12 +39,7 @@ def analyze_tweets(tweets,results,splitting_config=None):
         analyzed_tweet_extractor = lambda x: False
         baseline_tweet_extractor = lambda x: False
         
-    for line in tweets: 
-        # if it's not JSON, skip it
-        try:
-            tweet = json.loads(line)  
-        except ValueError:
-            continue
+    for tweet in tweet_generator:
         
         # analyze each Tweet 
         if analyzed_tweet_extractor(tweet):
@@ -66,6 +61,16 @@ def analyze_tweets(tweets,results,splitting_config=None):
                 results=results,
                 user_ids_baseline=user_ids_baseline
                 )
+
+def deserialize_tweets(line_generator):
+    """ 
+    Generator function to manage JSON deserialization
+    """
+    for line in line_generator:
+        try:
+            yield json.loads(line)
+        except ValueError:
+            continue
 
 def analyze_user_ids(user_ids_analyzed, results, groupings = None, user_ids_baseline = None):
     """ 
@@ -237,7 +242,7 @@ def analyze_tweet(tweet, results):
         for url in tweet["gnip"]["urls"]:
             try:
                 results["urls"][url["expanded_url"].split("/")[2]] += 1
-            except (KeyError,IndexError):
+            except (KeyError,IndexError,AttributeError):
                 pass
     # and the number of links total
     if ("number_of_links" in results) and ("urls" in tweet["gnip"]):

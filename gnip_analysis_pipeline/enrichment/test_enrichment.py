@@ -12,9 +12,6 @@ class TestEnrichment(BaseEnrichment):
     def enrichment_value(self,tweet):
         """ Calculate enrichment value """
         return 1
-    def __repr__(self):
-        """ Add a description of the class's function here """
-        return("This test class puts a 1 in the appropriate location in the JSON payload.")
 
 # this list specifies which classes to use for enrichment
 class_list = ["TestEnrichment"]

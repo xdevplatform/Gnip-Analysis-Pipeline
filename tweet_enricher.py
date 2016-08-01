@@ -33,7 +33,7 @@ full_class_list = []
 for module_name in module_name_list:
     ## import by str
     try:
-        module = importlib.import_module('gnip_analysis_pipeline.enrichments.' + module_name + '_enrichment')
+        module = importlib.import_module('gnip_analysis_pipeline.enrichment.' + module_name + '_enrichment')
     except ImportError, e:
         sys.stderr.write('Error importing an enriching module: {}\n{}\n'.format(module_name,str(e))) 
         sys.exit()
