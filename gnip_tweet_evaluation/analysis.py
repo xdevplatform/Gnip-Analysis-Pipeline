@@ -124,6 +124,10 @@ def compare_results(results):
         if 'error' in grouping:
             logger.warning(str(grouping))
             continue
+        if isinstance(grouping,str):
+            logger.warning(str(grouping))
+            continue
+
         for key_level_1,value_level_1 in grouping.items():
             if isinstance(value_level_1,unicode):
                 analyzed_value = float(value_level_1)
