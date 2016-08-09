@@ -8,7 +8,7 @@ from gnip_tweet_evaluation import analysis, output
 INPUT_FILE_NAME = 'dummy_tweets.json'
 
 class AnalysisTests(unittest.TestCase):
-    """Tests for the evaluation.analysis module"""
+    """Tests for the gnip_tweet_evaluation.analysis module"""
     def setUp(self):
         # check input file via shell
         self.line_generator = open(INPUT_FILE_NAME)  
@@ -33,6 +33,9 @@ class AnalysisTests(unittest.TestCase):
     # conversation analyses
     #
     def test_conversation_length(self):
+        """
+        Test count of Tweets in analysis code against known number
+        """
         # configure results structure
         results = analysis.setup_analysis(conversation=True)
         # is this id necessary for testing?
@@ -42,16 +45,11 @@ class AnalysisTests(unittest.TestCase):
         # ground truth from setUp() 
         self.assertEqual(results['tweet_count'],self.generator_length_truth)
 
-    #
-    # conversation analyses
-    #
     def test_body_term_count(self):
         """ inject body with a predetermined number of test tokens """ 
         pass
         # configure results structure
         results = analysis.setup_analysis(conversation=True)
-        # is this id necessary for testing?
-        results["unique_id"] = "TEST"
         # use counter for verification 
         counter = 1
         for tweet in self.tweets:
@@ -67,8 +65,6 @@ class AnalysisTests(unittest.TestCase):
         pass
         # configure results structure
         results = analysis.setup_analysis(conversation=True)
-        # is this id necessary for testing?
-        results["unique_id"] = "TEST"
         # use counter for verification 
         counter = 0
         for tweet in self.tweets:
@@ -84,8 +80,6 @@ class AnalysisTests(unittest.TestCase):
         pass
         # configure results structure
         results = analysis.setup_analysis(audience=True)
-        # is this id necessary for testing?
-        results["unique_id"] = "TEST"
         # run analysis code (including audience) for user ids 
         analysis.analyze_tweets(self.tweets, results)  
         user_ids = results["tweets_per_user"].keys()
@@ -103,8 +97,6 @@ class AnalysisTests(unittest.TestCase):
         pass
         # configure results structure
         results = analysis.setup_analysis(audience=True)
-        # is this id necessary for testing?
-        results["unique_id"] = "TEST"
         # use counter for verification 
         counter = 1
         for tweet in self.tweets:
@@ -161,7 +153,7 @@ class AnalysisTests(unittest.TestCase):
 
 
 class OutputTests(unittest.TestCase):
-    """Tests for the evaluation.output module"""
+    """Tests for the gnip_tweet.evaluation.output module"""
     def setUp(self):
         pass
 

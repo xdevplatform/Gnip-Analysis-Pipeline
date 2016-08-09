@@ -56,4 +56,5 @@ for line in sys.stdin:
     try:
         sys.stdout.write(json.dumps(tweet) + '\n') 
     except IOError:
+        # account for closed output pipe
         break

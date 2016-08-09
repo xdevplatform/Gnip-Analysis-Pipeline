@@ -1,15 +1,18 @@
 # Overview
 
-This software reads JSON-formatted Tweet data, enriches the tweet payloads
-with model-based metadata, builds time series based on programmable counters,
-and returns CSV-formatted data. It also performs audience and conversation
-analysis on Tweets.
+This repository contains a Python package that reads JSON-formatted Tweet data,
+enriches the tweet payloads with model-based metadata, builds time series based
+on programmable counters, and returns CSV-formatted data. A second package
+performs audience and conversation analysis on sets of Tweets.
 
 # Installation
 
 This package is designed to be pip-installed from the cloned repository location.
 
-`[REPOSITORY] $ pip install . -U`
+`[REPOSITORY] $ pip install PACKAGE -U`,
+
+where `PACKAGE` can be `gnip_analysis_pipeline` or `gnip_tweet_evaluation`, or
+`.` to install both packages.
 
 # Core Pipeline Components
 
@@ -32,17 +35,17 @@ We do enrichment by piping Tweet objects to the `tweet_enricher.py` script.
 Enrichments are defined by classes that follow the pattern found in the modules
 in `gnip_analysis_pipeline/enrichments/`, namely:
 
-1. Enrichment classes must inherit from `BaseEnrichment` in
-   `gnip_analysis_pipeline/enrichments/enrichment_base.py`. Alternately, the
-class must define an `enrich` method that acts on a dictionary representing a
-Tweet payload, and must attach the resulting metadata to the payload. The base
-class manages and hides these actions. Enrichment classes inheriting from 
-`BaseEnrichment` must implement an `enrichment_value` method that accepts at 
-Tweet payload and returns the enrichment value.
+1. Enrichment classes typically inherit from `BaseEnrichment` in
+`gnip_analysis_pipeline/enrichments/enrichment_base.py`. Enrichment classes
+inheriting from `BaseEnrichment` must implement an `enrichment_value` method
+that accepts at Tweet payload and returns the enrichment value. Alternately,
+the enrichment class must define an `enrich` method that acts on a dictionary
+representing a Tweet payload, and must attach the resulting metadata to the
+payload. The base class manages and hides these actions. 
 
 2. Enrichment modules must contain a "class\_list" variable which contains the
-   names of the classes to be used.  Enrichment classes can be disabled by
-removing their names from this list.
+   names of the enrichment classes to be used.  Enrichment classes can be
+disabled by removing their names from this list.
 
 3. Enrichment modules are enabled by having their module name (without the
    trailing "\_enrichment.py") added to the "module\_name\_list" variable,
@@ -86,7 +89,7 @@ evaluation can be for conversation (tweet bodies, hashtags, etc.), for audience
 (user bios, demographic modeling, etc.), or for both. 
 
 We do tweet evaluation with the `tweet_evaluator.py` script. You must have
-credentials for the Audience API to get demographic model results. All results
+credentials for the Gnip Audience API to get demographic model results. All results
 can be returned to txt files and to the screen. 
 
 ### Relative evaluation
@@ -120,15 +123,15 @@ splitting_config = {
 
 The function mapped to the 'analyzed' key selects Tweets in the analysis group,
 and the function mapped to the 'baseline' key selects the baseline group of Tweets.
-The results returned by the Audience API give the difference (in percentage) between
+The result returned by the Audience API gives the difference (in percentage) between
 the analysis and baseline groups, for categories in which both groups return results. 
 Relative results are not yet defined for other result types.
 
 # Example
 
-This example assumes that you have pip-installed the package, and that you are 
-working from a test directory called "TEST", 
-Copy the dummy data file at `example/dummy_tweets.json` to your test directory.
+This example assumes that you have pip-installed the package, and that you are
+working from a test directory called "TEST". Copy the dummy data file at
+`example/dummy\_tweets.json` to your test directory.
 
 A typical time series processing pipeline would look like:
 

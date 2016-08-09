@@ -4,7 +4,7 @@ Before submitting a pull request on bug fixes or new features, be sure to run th
 
 - create an empty, isolated Python 2.7.11 environment 
 - navigate to the repository root (``Gnip-Analysis-Pipeline``) and install the local version of the library. Use the ``-U`` flag to be sure that any pre-existing version is uninstalled and a fresh version is installed 
-- navigate to the ``tests/`` directory and run the test suite
+- run the test suite with `run_tests.bash`
 - fix any errors from failed tests
 - if you discover a new edge case, add it as a new test method where ever seems most appropriate
 
@@ -20,10 +20,7 @@ $ cd Gnip-Analysis-Pipeline/
 (dev-env) jmontague@data-science-4:~/Gnip-Analysis-Pipeline [tests]
 $ pip install . -U  # installs (and upgrades) all the dependencies
 (dev-env) jmontague@data-science-4:~/Gnip-Analysis-Pipeline [tests]
-$ cd tests/
-
-(dev-env) jmontague@data-science-4:~/Gnip-Analysis-Pipeline/tests [tests]
-$ python tweet_evaluation_tests.py 
+$ ./run_tests.bash
 ....................
 ----------------------------------------------------------------------
 Ran 20 tests in 6.024s

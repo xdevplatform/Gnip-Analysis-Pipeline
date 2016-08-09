@@ -8,6 +8,8 @@ cp example/dummy_tweets.json .
 
 # run all the tests
 python tests/tweet_evaluation_tests.py
+python tests/tweet_enrichment_tests.py
+python tests/tweet_time_series_tests.py
 
 # remove the copy of the data
 rm dummy_tweets.json
