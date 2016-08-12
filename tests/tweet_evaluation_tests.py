@@ -57,7 +57,7 @@ class AnalysisTests(unittest.TestCase):
             tweet['body'] += addition
             analysis.analyze_tweet(tweet, results) 
             counter += 1
-        expected_test_count = int(results['body_term_count'].get_tokens().next()[0])
+        expected_test_count = int(next(results['body_term_count'].get_tokens())[0])
         self.assertEqual(expected_test_count, sum(range(counter)))
 
     def test_hashtag_count(self):
@@ -86,7 +86,7 @@ class AnalysisTests(unittest.TestCase):
 
         # get ground truth (# unique user ids) from test data file
         p1 = subprocess.Popen(['cat', INPUT_FILE_NAME], stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(['python', '-c', 'import sys; import json; print len(set([json.loads(i)["actor"]["id"] for i in sys.stdin]))'], stdin=p1.stdout, stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(['python', '-c', 'import sys; import json; print(len(set([json.loads(i)["actor"]["id"] for i in sys.stdin])))'], stdin=p1.stdout, stdout=subprocess.PIPE)
         p1.stdout.close()
         out, err = p2.communicate()
         shell_user_count = int(out)
@@ -104,7 +104,7 @@ class AnalysisTests(unittest.TestCase):
             tweet['actor']['summary'] += addition
             analysis.analyze_tweet(tweet, results) 
             counter += 1
-        expected_test_count = int(results['bio_term_count'].get_tokens().next()[0])
+        expected_test_count = int( next(results['bio_term_count'].get_tokens())[0] )
         self.assertEqual(expected_test_count, sum(range(counter)))
 
     #
@@ -150,7 +150,9 @@ class AnalysisTests(unittest.TestCase):
         pass
 
 
-
+    def tearDown(self):
+        if not self.line_generator.closed:
+            self.line_generator.close()
 
 class OutputTests(unittest.TestCase):
     """Tests for the gnip_tweet.evaluation.output module"""

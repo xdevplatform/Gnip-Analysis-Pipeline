@@ -40,6 +40,9 @@ class AnalysisTests(unittest.TestCase):
             enriched_tweets.append(tweet)
         self.assertTrue(all(tweet['enrichments']['TestEnrichment']==1 for tweet in enriched_tweets))
 
+    def tearDown(self):
+        if not self.line_generator.closed:
+            self.line_generator.close()
 
 if __name__ == '__main__':
     unittest.main()

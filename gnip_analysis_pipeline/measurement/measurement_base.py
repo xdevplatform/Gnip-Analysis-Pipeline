@@ -1,6 +1,6 @@
 import collections
 import operator
-from utils import token_ok, term_comparator
+from .utils import token_ok, term_comparator
 
 """
 
@@ -158,9 +158,7 @@ class GetCutoffCounts(object):
     def get(self):
         if not hasattr(self,'min_n'):
             setattr(self,'min_n',3)
-        for token,count in self.counters.items():
-            if count < self.min_n:
-                del self.counters[token] 
+        self.counters = { token:count for token,count in self.counters.items() if count >= self.min_n }
         return [(count,name) for name,count in self.counters.items() ]
 class GetCutoffTopCounts(GetCutoffCounts):
     def get(self):

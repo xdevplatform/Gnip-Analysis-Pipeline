@@ -217,12 +217,12 @@ def query_users(user_ids,groupings):
         add_users(user_ids, str(unique_id))
         results = query_audience(str(unique_id),groupings) 
         return results 
-    except AudienceApiException, e:
+    except AudienceApiException as e:
         return {'error' : str(e)}
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i+n]
 
 def get_query_setup():
@@ -232,10 +232,13 @@ def get_query_setup():
     creds_file_path = os.getenv('HOME') + '/.audience_api_creds'
     if not os.path.exists(creds_file_path): 
         raise CredentialsException('Credentials file at $HOME/.audience_api_creds must exists!') 
-    creds = yaml.load(open(creds_file_path,'r'))
+    creds = None
+    with open(creds_file_path,'r') as f:
+        creds = yaml.load(f)
+
     try:
         auth = OAuth1(creds['consumer_key'],creds['consumer_secret'],creds['token'],creds['token_secret'])  
-    except (TypeError,KeyError), e:
+    except (TypeError,KeyError) as e:
         raise CredentialsException('Credentials file at $HOME/.audience_api_creds must contain the keys: username, consumer_key, consumer_secret, token, token_secret, url') 
     json_header = {'Content-Type' : 'application/json'}
 

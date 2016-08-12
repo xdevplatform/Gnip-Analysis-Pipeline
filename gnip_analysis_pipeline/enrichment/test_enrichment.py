@@ -1,4 +1,4 @@
-from enrichment_base import BaseEnrichment
+from .enrichment_base import BaseEnrichment
 class TestEnrichment(BaseEnrichment):
     """
     This is a test enrichment class that simply adds a `1` 

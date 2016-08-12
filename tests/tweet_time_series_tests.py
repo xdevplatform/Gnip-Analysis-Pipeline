@@ -35,9 +35,12 @@ class AnalysisTests(unittest.TestCase):
             if tweet['verb'] == 'share':
                 n_retweets += 1
         
-        self.assertEquals(tweet_counter.get()[0][0],self.generator_length_truth)  
-        self.assertEquals(retweet_counter.get()[0][0],n_retweets)  
+        self.assertEqual(tweet_counter.get()[0][0],self.generator_length_truth)  
+        self.assertEqual(retweet_counter.get()[0][0],n_retweets)  
 
+    def tearDown(self):
+        if not self.line_generator.closed:
+            self.line_generator.close()
 
 if __name__ == '__main__':
     unittest.main()

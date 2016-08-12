@@ -146,12 +146,10 @@ for item in sys.stdin:
 
 
 if not args.keep_empty_entries:
-    for measurement in measurements_list:
-        empty_instance = measurement()
-        for key,instance_list in data.items():
-            for instance in instance_list:
-                if instance.get() == 0:
-                    data[key].remove(instance)
+    for dt_key,instance_list in data.items():
+        for instance in instance_list:
+            if instance.get() == 0:
+                data[dt_key].remove(instance)
 
 # output
 
@@ -173,4 +171,6 @@ for time_bucket_key,measurements in data.items():
             output_list.append(csv_string)
 
 output_str = '\n'.join(sorted(output_list))
-sys.stdout.write(output_str.encode('utf8') + '\n')
+if sys.version_info[0] < 3:
+    output_str.encode('utf8')
+sys.stdout.write(output_str + '\n')

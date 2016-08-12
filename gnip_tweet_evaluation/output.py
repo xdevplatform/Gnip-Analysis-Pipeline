@@ -9,11 +9,14 @@ from matplotlib import use
 use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import dates, use
-import audience_api
 
 logger = logging.getLogger('output')
 
-sys.setdefaultencoding('utf-8')
+if sys.version_info[0] < 3: 
+    try:
+        sys.setdefaultencoding('utf-8') 
+    except AttributeError:
+        pass
 
 def top_terms_output(ngrams_object, title, output_path_base):
     """ output top terms from the ngrams object"""
@@ -89,11 +92,11 @@ def utc_timeline_plot():
 
 def audience_api_output(audience_api_results, output_path_base):
     """ format the audience API results """
-    print '\n\nAudience API Results'
+    print('\n\nAudience API Results')
     audience_api_file = open(output_path_base + '_audience_api.txt','w')
     if 'error' not in audience_api_results:
         for i, (grouping_name, grouping_result) in enumerate(audience_api_results.items()):
-            print '\n' + grouping_name + '\n' + '-' * len(grouping_name)
+            print('\n' + grouping_name + '\n' + '-' * len(grouping_name))
             audience_api_file.write('\n' + grouping_name + '\n' + '-' * len(grouping_name) + '\n')
             
             if 'errors' in grouping_result:
@@ -113,10 +116,10 @@ def audience_api_output(audience_api_results, output_path_base):
                 grouping_result_csv = sorted(flattened_tuples, key=lambda x: (x[0].split('|')[0], -1 * float(x[-1])))
                 
                 for line in grouping_result_csv:
-                    print line[0] + ' | ' + str(line[1]) 
+                    print(line[0] + ' | ' + str(line[1]) )
                     audience_api_file.write(line[0] + ' | ' + str(line[1]) + '\n' )
     else:
-        print 'Error: ' + audience_api_results['error']
+        print('Error: ' + audience_api_results['error'])
         audience_api_file.write('Error: ' + audience_api_results['error'])
 
 def flatten_dict(d):
