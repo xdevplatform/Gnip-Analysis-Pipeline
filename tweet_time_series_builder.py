@@ -36,12 +36,20 @@ parser.add_argument('-c','--config-file',dest='config_file',
 args = parser.parse_args() 
 
 if args.config_file is not None:  
-    sys.path.append(os.getcwd())
-    local_config = importlib.import_module( args.config_file.rstrip('.py') ) 
-    if hasattr(local_config,'measurements_list'):
-        measurements_list = local_config.measurements_list
-    if hasattr(local_config,'config_kwargs'):
-        config_kwargs = local_config.config_kwargs
+    # if config file not in local directory, temporarily extend path to its location
+    config_file_full_path = args.config_file.split('/')
+    if len(config_file_full_path) > 1:
+        path = '/'.join( config_file_full_path[:-1] )
+        sys.path.append( os.path.join(os.getcwd(),path) )
+    else:
+        sys.path.append(os.getcwd())
+    config_module = importlib.import_module( config_file_full_path[-1].rstrip('.py') )  
+    sys.path.pop()
+    
+    if hasattr(config_module,'measurements_list'):
+        measurements_list = config_module.measurements_list
+    if hasattr(config_module,'config_kwargs'):
+        config_kwargs = config_module.config_kwargs
 
 twitter_fmt_str = "%Y-%m-%dT%H:%M:%S.000Z"
 

@@ -54,8 +54,16 @@ if __name__ == '__main__':
     # configure the results object and manage splitting
     splitting_config = None
     if args.splitting_config is not None:
-        sys.path.append(os.getcwd())
-        splitting_config = importlib.import_module( args.splitting_config.rstrip('.py') ).splitting_config
+        # if file not in local directory, temporarily extend path to its location
+        config_file_full_path = args.config_file.split('/')
+        if len(config_file_full_path) > 1:
+            path = '/'.join( config_file_full_path[:-1] )
+            sys.path.append( os.path.join(os.getcwd(),path) )
+        else:
+            sys.path.append(os.getcwd())
+        splitting_config = importlib.import_module( config_file_full_path[-1].rstrip('.py') ).splitting_config
+        sys.path.pop()
+        
         results = analysis.setup_analysis(conversation = args.do_conversation_analysis, 
                 audience = args.do_audience_analysis,
                 identifier = 'analyzed',

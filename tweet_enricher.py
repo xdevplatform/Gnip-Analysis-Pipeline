@@ -20,12 +20,20 @@ args = parser.parse_args()
 if args.config_file is None:
     sys.stderr.write('No configuration file specified; enrichments will be:\n' + str(module_name_list) + '\n')
 else:
-    sys.path.append(os.getcwd())
-    local_config = importlib.import_module( args.config_file.rstrip('.py') ) 
-    if hasattr(local_config,'module_name_list'):
-        module_name_list = local_config.module_name_list
+    # if file not in local directory, temporarily extend path to its location
+    config_file_full_path = args.config_file.split('/')
+    if len(config_file_full_path) > 1:
+        path = '/'.join( config_file_full_path[:-1] )
+        sys.path.append( os.path.join(os.getcwd(),path) )
     else:
-        sys.stderr.write(args.config_file + ' has no a variable "module_name_list"; using default list.\n')
+        sys.path.append(os.getcwd())
+    config_module = importlib.import_module( config_file_full_path[-1].rstrip('.py') )  
+    sys.path.pop()
+    
+    if hasattr(config_module,'module_name_list'):
+        module_name_list = config_module.module_name_list
+    else:
+        sys.stderr.write(args.config_file + ' defines no a variable "module_name_list"; using default list.\n')
 
 
 ## fill this list with ordered instances of all enriching classes

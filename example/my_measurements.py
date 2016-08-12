@@ -1,5 +1,5 @@
-from gnip_analysis_pipeline.measurements import TweetCounter
-from gnip_analysis_pipeline.measurement_base import *
+from gnip_analysis_pipeline.measurement.sample_measurements import TweetCounter
+from gnip_analysis_pipeline.measurement.measurement_base import *
 
 class CutoffBodyTermCounters(GetCutoffCounts,TokenizedBody,Counters):
     def update(self,tweet):
