@@ -9,21 +9,22 @@ performs audience and conversation analysis on sets of Tweets.
 
 This package is designed to be pip-installed from the cloned repository location.
 
-`[REPOSITORY] $ pip install PACKAGE -U`,
+`[REPOSITORY] $ pip install gnip_analysis_pipeline[plotting,nltk] -U`,
 
-where `PACKAGE` can be `gnip_analysis_pipeline` or `gnip_tweet_evaluation`, or
-`.` to install both packages.
+where `plotting` and `nltk` install the extra dependencies needed for NLTK
+enrichment and time series plotting. 
 
 # Core Pipeline Components
 
-The pipeline abstracts the core, invariant pieces of an analysis of
-Tweet data. We first _enrich_ individual Tweets with metadata. We can then
-create _time series_ by counting things in time intervals, or we can _evaluate_
-a set of Tweets for audience and conversation analysis. 
+The pipeline abstracts the core, invariant pieces of an analysis of Tweet data.
+We first _enrich_ individual Tweets with metadata. We can then create _time
+series_ by counting things in time intervals. We can additionally _evaluate_ a
+set of Tweets (enriched or not) for audience and conversation analysis. 
 
 Because Tweet enrichment can be easily parallelized and because the resulting
 metadata can be counted and evaluated, we usually enrich before counting and
-evaluating, but this is not always necessary.
+evaluating. This is not strictly necessary, for example, when the Tweet analysis 
+functions only on metadata in the original Gnip payload.
 
 ## Enrichment
 
@@ -90,7 +91,9 @@ evaluation can be for conversation (tweet bodies, hashtags, etc.), for audience
 
 We do tweet evaluation with the `tweet_evaluator.py` script. You must have
 credentials for the Gnip Audience API to get demographic model results. All results
-can be returned to txt files and to the screen. 
+can be returned to txt files and to the screen. Because Tweet evaluation is
+a generally useful function, we've bundled it in its own importable package,
+`gnip_tweet_evaluation`.
 
 ### Relative evaluation
 
@@ -129,7 +132,7 @@ Relative results are not yet defined for other result types.
 
 # Example
 
-This example assumes that you have pip-installed the package, and that you are
+This example assumes that you have installed the package, and that you are
 working from a test directory called "TEST". Copy the dummy data file at
 `example/dummy\_tweets.json` to your test directory.
 

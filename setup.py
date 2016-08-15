@@ -8,5 +8,6 @@ setup(name='gnip_analysis_pipeline',
             'user_id_evaluator.py'
             ],
         version='0.1',
-        install_requires=['sngrams','matplotlib','pyyaml','requests','requests_oauthlib','pyfarmhash','nltk'] 
+        install_requires=['sngrams','pyyaml','requests','requests_oauthlib','pyfarmhash']  ,
+        extras_require={'plotting':['matplotlib'],'nltk':['nltk']}
         )
