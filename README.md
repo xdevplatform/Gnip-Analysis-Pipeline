@@ -134,7 +134,7 @@ Relative results are not yet defined for other result types.
 
 This example assumes that you have installed the package, and that you are
 working from a test directory called "TEST". Copy the dummy data file at
-`example/dummy\_tweets.json` to your test directory.
+`example/dummy_tweets.json` to your test directory.
 
 A typical time series processing pipeline would look like:
 
