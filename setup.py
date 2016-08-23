@@ -5,7 +5,8 @@ setup(name='gnip_analysis_pipeline',
         scripts=['tweet_enricher.py', 
             'tweet_time_series_builder.py', 
             'tweet_evaluator.py',
-            'user_id_evaluator.py'
+            'user_id_evaluator.py',
+            'tweet_engagements.py'
             ],
         version='0.1',
         license='MIT',
