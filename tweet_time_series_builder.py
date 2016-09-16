@@ -179,6 +179,7 @@ for time_bucket_key,measurements in data.items():
             output_list.append(csv_string)
 
 output_str = '\n'.join(sorted(output_list))
+output_str += '\n'
 if sys.version_info[0] < 3:
-    output_str.encode('utf8')
-sys.stdout.write(output_str + '\n')
+    output_str = output_str.encode('utf8')
+sys.stdout.write(output_str)
