@@ -8,7 +8,7 @@ setup(name='gnip_analysis_pipeline',
             'user_id_evaluator.py',
             'tweet_engagements.py'
             ],
-        version='0.1',
+        version='0.2',
         license='MIT',
         author='Jeff Kolb',
         author_email='jeffakolb@gmail.com',
