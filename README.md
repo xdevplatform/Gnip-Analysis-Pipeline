@@ -7,19 +7,24 @@ performs audience and conversation analysis on sets of Tweets.
 
 # Installation
 
-This package is designed to be pip-installed from the cloned repository location.
+This package can be pip-installed from the cloned repository location.
 
-`[REPOSITORY] $ pip install gnip_analysis_pipeline[plotting,nltk] -U`,
+`$ pip install gnip_analysis_pipeline[nltk]`
 
-where `plotting` and `nltk` install the extra dependencies needed for NLTK
-enrichment and time series plotting. 
+where `nltk` installs the extra dependencies needed for sample NLTK enrichment.
+You may also need to install [NLTK corpora](http://www.nltk.org/data.html).  
+
+The package can also be pip-installed locally from the cloned repository location.
+
+`[REPOSITORY]$ pip install -e .[nltk]`
+
 
 # Core Pipeline Components
 
 The pipeline abstracts the core, invariant pieces of an analysis of Tweet data.
 We first _enrich_ individual Tweets with metadata. We can then create _time
-series_ by counting things in time intervals. We can additionally _evaluate_ a
-set of Tweets (enriched or not) for audience and conversation analysis. 
+series_ by counting things in time intervals. The time series creation can
+be generalized to perform a variety of measurements on a set of Tweet payloads.
 
 Because Tweet enrichment can be easily parallelized and because the resulting
 metadata can be counted and evaluated, we usually enrich before counting and
@@ -77,63 +82,17 @@ config file.  We configure which measurements to run via the
 classes and make local measurement class definitions variable. See
 `example/my_measurements.py`.
 
-### Trend Detection
+## Trend Detection
 
 To do trend detection on your resulting time series data, use
 [Gnip-Trend-Detection](https://github.com/jeffakolb/Gnip-Trend-Detection),
 which is designed to accept data from this pipeline.
 
-## Tweet evaluation
-
-In this step, we evaluate a set of Tweet payloads (enriched or not). The
-evaluation can be for conversation (tweet bodies, hashtags, etc.), for audience
-(user bios, demographic modeling, etc.), or for both. 
-
-We do tweet evaluation with the `tweet_evaluator.py` script. You must have
-credentials for the Gnip Audience API to get demographic model results. All results
-can be returned to txt files and to the screen. Because Tweet evaluation is
-a generally useful function, we've bundled it in its own importable package,
-`gnip_tweet_evaluation`.
-
-### Relative evaluation
-
-As with the enrichment and time series builder, you can pass an addition config
-file to the evaluation sctip, with the `-s` option. This _splitting configuration_
-specifies that you a doing a _relative_ Tweet evaluation, in which the outputs
-represent the difference between two sets of Tweets. The splitting config file
-defines these two sets of Tweets by defining two functions and mapping them in a dictionary.
-
-The example in `examples/my_splitting_config.py` demonstrates the pattern:
-```python
-def analyzed_function(tweet):
-    """ dummy filtering function """
-    try:
-        if len(tweet['actor']['preferredUsername']) > 7:
-            return True
-        else:
-            return False
-    except KeyError:
-        return False
-
-def baseline_function(tweet):
-    return not analyzed_function(tweet)
-
-splitting_config = {
-    'analyzed':analyzed_function,
-    'baseline':baseline_function
-}
-```
-
-The function mapped to the 'analyzed' key selects Tweets in the analysis group,
-and the function mapped to the 'baseline' key selects the baseline group of Tweets.
-The result returned by the Audience API gives the difference (in percentage) between
-the analysis and baseline groups, for categories in which both groups return results. 
-Relative results are not yet defined for other result types.
-
 # Example
 
-This example assumes that you have installed the package, and that you are
-working from a test directory called "TEST". Copy the dummy data file at
+This example assumes that you have installed the package in your Python 
+environment, and that you are working from a test directory called "TEST". 
+Copy the dummy data file at
 `example/dummy_tweets.json` to your test directory.
 
 A typical time series processing pipeline would look like:
@@ -145,14 +104,9 @@ This process runs the default enrichments (the 'test' enrichment) and the defaul
 measurements ('TweetCounter' and 'ReTweetCounter'). Note that the dummy Tweets 
 file contains no Retweets.
 
-Conversation and audience analysis are run like:
-
-`[TEST] $ cat enriched_dummy_tweets.json | tweet_evaluator.py -a -c >
-evaluation_output.txt`
-
 ## Example configuration files
 
-You can find three example configuration files in the `example` directory. Copy them to your
+You can find two example configuration files in the `example` directory. Copy them to your
 TEST directory. They
 should be used as arguments to the `-c` option of the enrichment and time
 series scripts, and to the `-s` option of the evaluation script.
@@ -172,11 +126,3 @@ These measurements, along with a simple tweet-counting measurement, are enabled 
 redefinition of the `measurements_list` variable. The count cutoff can also be
 defined in this file.  
 
-For audience and conversation evaluation, `my_splitting_config.py` splits the
-users into two groups: those with user names greater that seven characters long,
-and those with users names six or less characters in length. For now, only
-the Audience API response is returned.
-
-`[TEST] $ cat dummy_tweets.json | tweet_evaluator.py -a -s my_splitting_config.py`
-
-The results are printed to stdout and to `$HOME/tweet_evaluation/` (by default). 
