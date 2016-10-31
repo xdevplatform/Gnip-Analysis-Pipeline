@@ -10,6 +10,7 @@ import multiprocessing
 import itertools
 import time
 import logging
+import fileinput
 
 try:
     import ujson as json 
@@ -75,7 +76,10 @@ def aggregate(line_generator,config_kwargs,keep_empty_entries):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("Produce time series data from Tweet records")
+
+    parser.add_argument('-i','--input-files',dest='input_files',nargs="+",
+            default=None,help="input files; if unspecified, stdin is used")
     parser.add_argument('-b','--bucket-size',dest='bucket_size',
             default="day",help="bucket size: second,minute,hour,day; default is %(default)s")
     parser.add_argument('-e','--keep-empty-entries',dest='keep_empty_entries',
@@ -175,6 +179,11 @@ if __name__ == "__main__":
         # some sort of exception 
         raise ValueError("Bucket size '{}' doesn't make sense".format(args.bucket_size)) 
 
+    if args.input_files is None:
+        input_source = fileinput.input(files='-') 
+    else:
+        input_source = fileinput.input(files=args.input_files,openhook=fileinput.hook_compressed)
+
     def generate_chunks(iterable, size=10): 
         """ helper function to generated fixed-sized chunks of an iterable """
         iterator = iter(iterable)
@@ -186,7 +195,7 @@ if __name__ == "__main__":
     # process the chunks of tweets
     # think of this as a mapping step
     results = []
-    for chunk_idx,chunk_o_tweets in enumerate(generate_chunks(sys.stdin,args.max_tweets)): 
+    for chunk_idx,chunk_o_tweets in enumerate(generate_chunks(input_source,args.max_tweets)): 
         logger.debug("Submitting chunk " + str(chunk_idx))
         results.append( pool.apply_async(aggregate,(list(chunk_o_tweets),config_kwargs,args.keep_empty_entries) ) )
     data = []
