@@ -85,6 +85,8 @@ class MeasurementBase(object):
                 if not comparator(data,value):
                     return 
         self.update(tweet)
+    def combine(self,_):
+        raise NotImplementedError("Please implement a 'combine' method for your measurement class")
 
 class Counter(MeasurementBase):
     """ base class for any single integer counter """
@@ -93,6 +95,8 @@ class Counter(MeasurementBase):
         self.counter = 0
     def get(self):
         return [(self.counter,self.get_name())]
+    def combine(self,new_counter):
+        self.counter += new_counter.counter
 
 class Counters(MeasurementBase):
     """ base class for multiple integer counters """
@@ -101,6 +105,13 @@ class Counters(MeasurementBase):
         self.counters = collections.defaultdict(int)
     def get(self):
         return [(count,name) for name,count in self.counters.items()]
+    def combine(self,new_counters):
+        for new_name,new_count in new_counters.counters.items():
+            if new_name in self.counters.keys():
+                self.counters[new_name] += new_count
+            else:
+                self.counters[new_name] = new_count
+
 
 # these classes provide 'get_tokens' methods for
 # various tweet components

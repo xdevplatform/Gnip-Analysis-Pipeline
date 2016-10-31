@@ -82,6 +82,10 @@ config file.  We configure which measurements to run via the
 classes and make local measurement class definitions variable. See
 `example/my_measurements.py`.
 
+By default, this script will parallelize the aggregation. You can control
+this with the `-m` option, which specifies the maximum number of Tweets to 
+be aggregated in a single process.
+
 ## Trend Detection
 
 To do trend detection on your resulting time series data, use

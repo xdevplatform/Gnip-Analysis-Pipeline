@@ -16,6 +16,8 @@ class TweetCounter(object):
         return [(self.counter,self.get_name())]
     def get_name(self):
         return 'TweetCounter'
+    def combine(self,new):
+        self.counter += new.counter
 
 class ReTweetCounter(object):
     def __init__(self, **kwargs):
@@ -27,5 +29,7 @@ class ReTweetCounter(object):
         return [(self.counter,self.get_name())]
     def get_name(self):
         return 'ReTweetCounter'
+    def combine(self,new):
+        self.counter += new.counter
 
 measurements_list.extend([TweetCounter, ReTweetCounter])
