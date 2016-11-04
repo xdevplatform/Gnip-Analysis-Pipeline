@@ -17,6 +17,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-c','-configuration-file',dest='config_file',default=None,help='python file defining "module_name_list"') 
 args = parser.parse_args()
 
+prefilters = []
+
 if args.config_file is None:
     sys.stderr.write('No configuration file specified; enrichments will be:\n' + str(module_name_list) + '\n')
 else:
@@ -35,6 +37,8 @@ else:
     else:
         sys.stderr.write(args.config_file + ' defines no a variable "module_name_list"; using default list.\n')
 
+    if hasattr(config_module,'prefilters'):
+        prefilters = config_module.prefilters
 
 ## fill this list with ordered instances of all enriching classes
 full_class_list = []
@@ -58,6 +62,10 @@ for line in sys.stdin:
     # skip Tweets without body
     if 'body' not in tweet:
         continue
+
+    if not all([prefilter(tweet) for prefilter in prefilters]):
+        continue
+
 
     for cls_instance in full_class_list:
         cls_instance.enrich(tweet)
