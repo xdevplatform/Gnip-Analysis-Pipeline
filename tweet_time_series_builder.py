@@ -35,7 +35,17 @@ config_kwargs = {}
 # config_kwargs['top_k'] = 20
 # config_kwargs['min_n'] = 10
 
-def aggregate(line_generator,config_kwargs,keep_empty_entries): 
+def aggregate_file(file_name,get_time_bucket,config_kwargs,keep_empty_entries):
+    """
+    Aggregator acting on a file name
+    """
+    decompressed_file_object = fileinput.input(files=file_name,openhook=fileinput.hook_compressed)
+    return aggregate(decompressed_file_object,get_time_bucket,config_kwargs,keep_empty_entries) 
+
+def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):  
+    """
+    Aggregator acting on an interable
+    """
     data = {}
 
     for item in line_generator:
@@ -50,7 +60,11 @@ def aggregate(line_generator,config_kwargs,keep_empty_entries):
             continue
         
         ## get time bucket and corresponding data objects
-        tweet_time = datetime.datetime.strptime(tweet["postedTime"],twitter_fmt_str)
+        #try:
+        tweet_time = datetime.datetime.strptime(tweet["postedTime"],twitter_fmt_str) 
+        # throw away malformed records
+        #except (TypeError,ValueError): 
+        #    continue
         time_bucket_key = get_time_bucket(tweet_time)
         
         ## for a new time bucket, we need to initialize the data objects
@@ -179,36 +193,31 @@ if __name__ == "__main__":
         # some sort of exception 
         raise ValueError("Bucket size '{}' doesn't make sense".format(args.bucket_size)) 
 
-    if args.input_files is None:
-        input_source = fileinput.input(files='-') 
-    else:
-        input_source = fileinput.input(files=args.input_files,openhook=fileinput.hook_compressed)
-
-    def generate_chunks(iterable, size=10): 
-        """ helper function to generated fixed-sized chunks of an iterable """
-        iterator = iter(iterable)
-        for first in iterator:
-            yield itertools.chain([first], itertools.islice(iterator, size - 1))
-
-    pool = multiprocessing.Pool(processes=args.num_cpu)
 
     # process the chunks of tweets
     # think of this as a mapping step
     results = []
-    for chunk_idx,chunk_o_tweets in enumerate(generate_chunks(input_source,args.max_tweets)): 
-        logger.debug("Submitting chunk " + str(chunk_idx))
-        results.append( pool.apply_async(aggregate,(list(chunk_o_tweets),config_kwargs,args.keep_empty_entries) ) )
     data = []
-    while len(results) > 0:
-        for result in results:
-            if result.ready():
-                data.append(result.get())
-                results.remove(result)
-                break
-        time.sleep(0.1)
-        if datetime.datetime.now().second%10 == 0:
-            time.sleep(1)
-            logger.debug(str(len(results)) + ' chunks remaining')
+    if args.input_files is None: 
+        # we're reading from stdin and running single-thread
+        data.append( aggregate(sys.stdin,get_time_bucket,config_kwargs,args.keep_empty_entries) )
+    else:
+        pool = multiprocessing.Pool(processes=args.num_cpu)
+        for chunk_idx, file_name in enumerate(args.input_files): 
+            logger.debug("Submitting chunk " + str(chunk_idx))
+            results.append( pool.apply_async(aggregate_file,(file_name,get_time_bucket,config_kwargs,args.keep_empty_entries) ) ) 
+
+        # collect results as they finish
+        while len(results) > 0:
+            for result in results:
+                if result.ready():
+                    data.append(result.get())
+                    results.remove(result)
+                    break
+            time.sleep(0.1)
+            if datetime.datetime.now().second%10 == 0:
+                time.sleep(1)
+                logger.debug(str(len(results)) + ' chunks remaining')
 
 
     # combine the measurements
