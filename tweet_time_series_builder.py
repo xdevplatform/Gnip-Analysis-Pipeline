@@ -25,15 +25,11 @@ logger = logging.getLogger(__name__)
 logger.addHandler( logging.StreamHandler() )
 logger.setLevel(logging.DEBUG)
 
-# import default measurements list
-from gnip_analysis_pipeline.measurement.sample_measurements import measurements_list 
-# get the local utilities
-from gnip_analysis_pipeline.measurement import utils
+# default measurements list
+measurements_list = []
 
-# set configuration parameters here. 
+# default configuration parameters 
 config_kwargs = {}
-# config_kwargs['top_k'] = 20
-# config_kwargs['min_n'] = 10
 
 def aggregate_file(file_name,get_time_bucket,config_kwargs,keep_empty_entries):
     """
@@ -72,7 +68,8 @@ def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):
             data[time_bucket_key] = []
             for measurement in measurements_list: 
                 data[time_bucket_key].append( measurement(**config_kwargs) ) 
-            
+        
+        ## get the measurement instances for this bucket
         data_bucket = data[time_bucket_key] 
 
         ## update all the measurements 
@@ -252,11 +249,8 @@ if __name__ == "__main__":
         time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_format).strftime('%Y%m%d%H%M%S')
         for measurement in measurements:
             for count,counter_name in measurement.get():
-                counter_name = utils.sanitize_string(counter_name)
                 csv_string = u'{0:d},{1},{2},{3:s}'.format(int(time_bucket_start),
                         time_bucket_size_in_sec,
-                        # note: trend input reader splits on ','
-                        # choice of '-' is arbitrary!
                         count,
                         counter_name
                         )
@@ -266,4 +260,7 @@ if __name__ == "__main__":
     output_str += '\n'
     if sys.version_info[0] < 3:
         output_str = output_str.encode('utf8')
-    sys.stdout.write(output_str)
+    try:
+        sys.stdout.write(output_str) 
+    except IOError:
+        pass

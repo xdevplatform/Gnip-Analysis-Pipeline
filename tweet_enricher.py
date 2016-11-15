@@ -9,20 +9,18 @@ try:
 except ImportError:
     import json
 
-module_name_list = [
-        'test',
-        ]
+class_list = []
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c','-configuration-file',dest='config_file',default=None,help='python file defining "module_name_list"') 
+parser.add_argument('-c','-configuration-file',dest='config_file',default=None,help='python file defining "class_list"') 
 args = parser.parse_args()
 
 prefilters = []
 
 if args.config_file is None:
-    sys.stderr.write('No configuration file specified; enrichments will be:\n' + str(module_name_list) + '\n')
+    sys.stderr.write('No configuration file specified; no enrichments will be run.\n') 
 else:
-    # if file not in local directory, temporarily extend path to its location
+    # if config file not in local directory, temporarily extend path to its location
     config_file_full_path = args.config_file.split('/')
     if len(config_file_full_path) > 1:
         path = '/'.join( config_file_full_path[:-1] )
@@ -32,26 +30,16 @@ else:
     config_module = importlib.import_module( config_file_full_path[-1].rstrip('.py') )  
     sys.path.pop()
     
-    if hasattr(config_module,'module_name_list'):
-        module_name_list = config_module.module_name_list
+    if hasattr(config_module,'class_list'):
+        class_list = config_module.class_list
     else:
-        sys.stderr.write(args.config_file + ' defines no a variable "module_name_list"; using default list.\n')
+        sys.stderr.write(args.config_file + ' does not define "class_list"; no enrichments will be run.\n')
 
     if hasattr(config_module,'prefilters'):
         prefilters = config_module.prefilters
 
-## fill this list with ordered instances of all enriching classes
-full_class_list = []
-for module_name in module_name_list:
-    ## import by str
-    try:
-        module = importlib.import_module('gnip_analysis_pipeline.enrichment.' + module_name + '_enrichment')
-    except ImportError as e:
-        sys.stderr.write('Error importing an enriching module: {}\n{}\n'.format(module_name,str(e))) 
-        sys.exit()
-    for class_name in module.class_list:
-        ## instantiate and add to list
-        full_class_list.append(getattr(module,class_name)())
+# create instances of all configured classes
+class_instance_list = [class_definition() for class_definition in class_list]
 
 ## main loop over tweets
 for line in sys.stdin:
@@ -66,8 +54,7 @@ for line in sys.stdin:
     if not all([prefilter(tweet) for prefilter in prefilters]):
         continue
 
-
-    for cls_instance in full_class_list:
+    for cls_instance in class_instance_list:
         cls_instance.enrich(tweet)
     try:
         sys.stdout.write(json.dumps(tweet) + '\n') 

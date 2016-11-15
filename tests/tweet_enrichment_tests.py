@@ -2,12 +2,16 @@ import unittest
 import subprocess
 import json
 
-from gnip_analysis_pipeline.enrichment import test_enrichment
+class TestEnrichment(object):
+    def enrich(self,tweet):
+        if 'enrichments' not in tweet:
+            tweet['enrichments'] = {}
+        tweet['enrichments'][self.__class__.__name__] = 1
 
 INPUT_FILE_NAME = 'dummy_tweets.json'
 
 class AnalysisTests(unittest.TestCase):
-    """Tests for the gnip_analysis_pipeline.enrichment package"""
+    """Tests for functions in tweet_enricher.py"""
     def setUp(self):
         # check input file via shell
         self.line_generator = open(INPUT_FILE_NAME)  
@@ -33,7 +37,7 @@ class AnalysisTests(unittest.TestCase):
     #
     def test_test_enrichment(self):
         """ test the enrichment defined in test_enrichment.py """ 
-        enrichment_cls = test_enrichment.TestEnrichment()
+        enrichment_cls = TestEnrichment()
         enriched_tweets = []
         for tweet in self.tweets:
             enrichment_cls.enrich(tweet)

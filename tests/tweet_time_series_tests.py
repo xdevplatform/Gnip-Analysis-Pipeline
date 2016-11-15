@@ -2,7 +2,30 @@ import unittest
 import subprocess
 import json
 
-from gnip_analysis_pipeline.measurement import sample_measurements
+class TweetCounter(object):
+    def __init__(self, **kwargs):
+        self.counter = 0
+    def add_tweet(self,tweet):
+        self.counter += 1
+    def get(self):
+        return [(self.counter,self.get_name())]
+    def get_name(self):
+        return 'TweetCounter'
+    def combine(self,new):
+        self.counter += new.counter
+
+class ReTweetCounter(object):
+    def __init__(self, **kwargs):
+        self.counter = 0
+    def add_tweet(self,tweet):
+        if tweet['verb'] == 'share':
+            self.counter += 1
+    def get(self):
+        return [(self.counter,self.get_name())]
+    def get_name(self):
+        return 'ReTweetCounter'
+    def combine(self,new):
+        self.counter += new.counter
 
 INPUT_FILE_NAME = 'dummy_tweets.json'
 
@@ -24,9 +47,9 @@ class AnalysisTests(unittest.TestCase):
     # measurement tests
     #
     def test_tweet_counting(self):
-        """ test the measurements defined in sample_measurements.py """  
-        tweet_counter = sample_measurements.TweetCounter()
-        retweet_counter = sample_measurements.ReTweetCounter()
+        """ test the TweetCounter and ReTweetCounter """  
+        tweet_counter = TweetCounter()
+        retweet_counter = ReTweetCounter()
         n_retweets = 0
         for tweet in self.tweets:
             tweet_counter.add_tweet(tweet)
