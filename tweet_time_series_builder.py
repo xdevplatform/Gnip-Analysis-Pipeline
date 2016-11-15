@@ -88,9 +88,15 @@ if __name__ == "__main__":
             default=None,help='file with local definitions of measurement classes and config')
     parser.add_argument('-m','--max-tweets',dest='max_tweets',type=int,
             default=1000000,help="max number of tweets per aggregator process")
-    parser.add_argument('-p','--num-spu',dest='num_cpu',type=int,
-            default=os.cpu_count(),help="number of parallel aggregator process")
-    args = parser.parse_args() 
+    parser.add_argument('-p','--num-cpu',dest='num_cpu',type=int,
+            default=1,help="number of parallel aggregator process")
+    args = parser.parse_args()  
+
+    # os module doesn't have yet have cpu_count in py2
+    try:
+        args.num_cpu = os.cpu_count()
+    except AttributeError:
+        pass
 
     if args.config_file is not None:  
         # if config file not in local directory, temporarily extend path to its location
