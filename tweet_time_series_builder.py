@@ -63,6 +63,7 @@ def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):
         ## for a new time bucket, we need to initialize the data objects
         if time_bucket_key not in data:
             data[time_bucket_key] = []
+            config_kwargs["_datekey"] = time_bucket_key
             for measurement in measurement_class_list:
                 # measurement class instances are all constructed with kw args
                 data[time_bucket_key].append( measurement(**config_kwargs) ) 
