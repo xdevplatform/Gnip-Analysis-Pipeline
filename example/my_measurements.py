@@ -23,4 +23,4 @@ class ReTweetCounter(object):
     def combine(self,new):
         self.counter += new.counter
 
-measurements_list = [TweetCounter, ReTweetCounter]
+measurement_class_list = [TweetCounter, ReTweetCounter]

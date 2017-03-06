@@ -12,7 +12,7 @@ except ImportError:
 class_list = []
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c','-configuration-file',dest='config_file',default=None,help='python file defining "class_list"') 
+parser.add_argument('-c','-configuration-file',dest='config_file',default=None,help='python file defining "enrichment_class_list"') 
 args = parser.parse_args()
 
 prefilters = []
@@ -30,16 +30,16 @@ else:
     config_module = importlib.import_module( config_file_full_path[-1].rstrip('.py') )  
     sys.path.pop()
     
-    if hasattr(config_module,'class_list'):
-        class_list = config_module.class_list
+    if hasattr(config_module,'enrichment_class_list'):
+        enrichment_class_list = config_module.enrichment_class_list
     else:
-        sys.stderr.write(args.config_file + ' does not define "class_list"; no enrichments will be run.\n')
+        sys.stderr.write(args.config_file + ' does not define "enrichment_class_list"; no enrichments will be run.\n')
 
     if hasattr(config_module,'prefilters'):
         prefilters = config_module.prefilters
 
 # create instances of all configured classes
-class_instance_list = [class_definition() for class_definition in class_list]
+class_instance_list = [class_definition() for class_definition in enrichment_class_list]
 
 ## main loop over tweets
 for line in sys.stdin:

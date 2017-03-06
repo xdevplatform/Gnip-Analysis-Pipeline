@@ -26,7 +26,7 @@ logger.addHandler( logging.StreamHandler() )
 logger.setLevel(logging.DEBUG)
 
 # default measurements list
-measurements_list = []
+measurement_class_list = []
 
 # default configuration parameters 
 config_kwargs = {}
@@ -34,6 +34,7 @@ config_kwargs = {}
 def aggregate_file(file_name,get_time_bucket,config_kwargs,keep_empty_entries):
     """
     Aggregator acting on a file name
+    File is decompressed and an iterator is passed to 'aggregate'
     """
     decompressed_file_object = fileinput.input(files=file_name,openhook=fileinput.hook_compressed)
     return aggregate(decompressed_file_object,get_time_bucket,config_kwargs,keep_empty_entries) 
@@ -56,17 +57,14 @@ def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):
             continue
         
         ## get time bucket and corresponding data objects
-        #try:
         tweet_time = datetime.datetime.strptime(tweet["postedTime"],twitter_fmt_str) 
-        # throw away malformed records
-        #except (TypeError,ValueError): 
-        #    continue
         time_bucket_key = get_time_bucket(tweet_time)
         
         ## for a new time bucket, we need to initialize the data objects
         if time_bucket_key not in data:
             data[time_bucket_key] = []
-            for measurement in measurements_list: 
+            for measurement in measurement_class_list:
+                # measurement class instances are all constructed with kw args
                 data[time_bucket_key].append( measurement(**config_kwargs) ) 
         
         ## get the measurement instances for this bucket
@@ -76,7 +74,6 @@ def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):
         for measurement in data_bucket:
             measurement.add_tweet(tweet)
 
-
     if not keep_empty_entries:
         for dt_key,instance_list in data.items():
             for instance in instance_list:
@@ -84,7 +81,31 @@ def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):
                     data[dt_key].remove(instance)
     
     return data
+    
+def combine(data):
+    """ 
+    Combine measurements across items in 'data'
 
+    'data' is list of results objects calculated 
+    for different input files. Each results object is a dict
+    of (date_time_bucket, measurement_isntance_list) pairs.
+    """
+    reduced_data = {}
+    for chunk_data in data:
+        for time_bucket_key,measurements in chunk_data.items():
+            for measurement in measurements:
+                if time_bucket_key not in reduced_data:
+                    reduced_data[time_bucket_key] = [measurement]
+                else:
+                    measurement_exists = False
+                    for existing_measurement in reduced_data[time_bucket_key]:
+                        if measurement.get_name() == existing_measurement.get_name():
+                            existing_measurement.combine(measurement)
+                            measurement_exists = True
+                    # add measurement if not found in reduced data for this time bucket
+                    if measurement_exists is False:
+                        reduced_data[time_bucket_key].append(measurement)
+    return reduced_data
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Produce time series data from Tweet records")
@@ -120,10 +141,14 @@ if __name__ == "__main__":
         config_module = importlib.import_module( config_file_full_path[-1].rstrip('.py') )  
         sys.path.pop()
         
-        if hasattr(config_module,'measurements_list'):
-            measurements_list = config_module.measurements_list
+        if hasattr(config_module,'measurement_class_list'):
+            measurement_class_list = config_module.measurement_class_list
+        else:
+            sys.stderr.write(args.config_file + ' does not define "measurement_class_list"; no measurements will be run.\n    ')
         if hasattr(config_module,'config_kwargs'):
             config_kwargs = config_module.config_kwargs
+    else: 
+        sys.stderr.write('No configuration file specified; no measurements will be run.\n')
 
     twitter_fmt_str = "%Y-%m-%dT%H:%M:%S.000Z"
 
@@ -197,54 +222,37 @@ if __name__ == "__main__":
         raise ValueError("Bucket size '{}' doesn't make sense".format(args.bucket_size)) 
 
 
-    # process the chunks of tweets
-    # think of this as a mapping step
-    results = []
+    ## process the Tweets 
     data = []
     if args.input_files is None: 
         # we're reading from stdin and running single-thread
         data.append( aggregate(sys.stdin,get_time_bucket,config_kwargs,args.keep_empty_entries) )
     else:
+        # we will process each input file separately in a multiprocessing Process
+        mapping_results = []
         pool = multiprocessing.Pool(processes=args.num_cpu)
         for chunk_idx, file_name in enumerate(args.input_files): 
             logger.debug("Submitting chunk " + str(chunk_idx))
-            results.append( pool.apply_async(aggregate_file,(file_name,get_time_bucket,config_kwargs,args.keep_empty_entries) ) ) 
+            mapping_results.append( pool.apply_async(aggregate_file,(file_name,get_time_bucket,config_kwargs,args.keep_empty_entries) ) ) 
 
         # collect results as they finish
-        while len(results) > 0:
-            for result in results:
+        while len(mapping_results) > 0:
+            for result in mapping_results:
                 if result.ready():
                     data.append(result.get())
-                    results.remove(result)
+                    mapping_results.remove(result)
                     break
             time.sleep(0.1)
             if datetime.datetime.now().second%10 == 0:
                 time.sleep(1)
-                logger.debug(str(len(results)) + ' chunks remaining')
+                logger.debug(str(len(mapping_results)) + ' chunks remaining')
 
+    ## combine the measurements
+    combined_data = combine(data)
 
-    # combine the measurements
-    # think of this as a reducing step
-    reduced_data = {}
-    for chunk_data in data:
-        for time_bucket_key,measurements in chunk_data.items():
-            for measurement in measurements:
-                if time_bucket_key not in reduced_data:
-                    reduced_data[time_bucket_key] = [measurement]
-                else:
-                    measurement_exists = False
-                    for existing_measurement in reduced_data[time_bucket_key]:
-                        if measurement.get_name() == existing_measurement.get_name():
-                            existing_measurement.combine(measurement)
-                            measurement_exists = True
-                    # add measurement if not found in reduced data for this time bucket
-                    if measurement_exists is False:
-                        reduced_data[time_bucket_key].append(measurement)
-                        
-
-    # output the data in CSV
+    ## output the data in CSV
     output_list = []
-    for time_bucket_key,measurements in reduced_data.items():
+    for time_bucket_key,measurements in combined_data.items():
         # the format of this string must be parsable by dateutil.parser.parse
         time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_format).strftime('%Y%m%d%H%M%S')
         for measurement in measurements:
