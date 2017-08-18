@@ -2,7 +2,6 @@
 
 import sys
 import datetime
-import pickle
 import argparse
 import importlib
 import os
@@ -17,48 +16,60 @@ try:
 except ImportError:
     import json
 
+TWITTER_DT_FORMAT_STR = "%Y-%m-%dT%H:%M:%S.000Z"
+
 """
 Make counts of things in Tweets, bucketed by a time interval.
 """
 
 logger = logging.getLogger(__name__)
-logger.addHandler( logging.StreamHandler() )
-logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler() 
+handler.setFormatter( logging.Formatter('%(asctime)s %(module)s:%(lineno)s - %(levelname)s - %(message)s') )
+handler.setLevel(logging.INFO)
+logger.addHandler( handler )
+logger.setLevel(logging.INFO)
 
-# default measurements list
-measurement_class_list = []
-
-# default configuration parameters 
-config_kwargs = {}
-
-def aggregate_file(file_name,get_time_bucket,config_kwargs,keep_empty_entries):
+def aggregate_file(file_name,
+        TWITTER_DT_FORMAT_STR,
+        dt_bucket_format,
+        config_kwargs,
+        measurement_class_list,
+        keep_empty_entries):
     """
     Aggregator acting on a file name
     File is decompressed and an iterator is passed to 'aggregate'
     """
     decompressed_file_object = fileinput.input(files=file_name,openhook=fileinput.hook_compressed)
-    return aggregate(decompressed_file_object,get_time_bucket,config_kwargs,keep_empty_entries) 
+    return aggregate(decompressed_file_object,
+            TWITTER_DT_FORMAT_STR,
+            dt_bucket_format,
+            config_kwargs,
+            measurement_class_list,
+            keep_empty_entries) 
 
-def aggregate(line_generator,get_time_bucket,config_kwargs,keep_empty_entries):  
+def aggregate(line_generator,
+        TWITTER_DT_FORMAT_STR,
+        dt_bucket_format,
+        config_kwargs,
+        measurement_class_list,
+        keep_empty_entries):  
     """
     Aggregator acting on an interable
     """
     data = {}
 
-    for item in line_generator:
+    for tweet_str in line_generator:
         try:
-            tweet = json.loads(item) 
+            tweet = json.loads(tweet_str)  
         except ValueError:
-            #sys.stderr.write("BAD TWEET: " + item + '\n')
             continue
 
         ## throw away Tweets without times (compliance activities)
         if "postedTime" not in tweet:
             continue
         
-        ## get time bucket and corresponding data objects
-        tweet_time = datetime.datetime.strptime(tweet["postedTime"],twitter_fmt_str) 
-        time_bucket_key = get_time_bucket(tweet_time)
+        time_bucket_key = datetime.datetime.strptime(tweet["postedTime"],
+                TWITTER_DT_FORMAT_STR).strftime(dt_bucket_format)
         
         ## for a new time bucket, we need to initialize the data objects
         if time_bucket_key not in data:
@@ -89,7 +100,7 @@ def combine(data):
 
     'data' is list of results objects calculated 
     for different input files. Each results object is a dict
-    of (date_time_bucket, measurement_isntance_list) pairs.
+    of (date_time_bucket, measurement_instance_list) pairs.
     """
     reduced_data = {}
     for chunk_data in data:
@@ -123,13 +134,19 @@ if __name__ == "__main__":
             default=1000000,help="max number of tweets per aggregator process")
     parser.add_argument('-p','--num-cpu',dest='num_cpu',type=int,
             default=1,help="number of parallel aggregator process")
+    parser.add_argument('-v','--verbose',dest='verbose',action='store_true',
+            default=False,help="produce verbose output; default is %(default)s")
     args = parser.parse_args()  
 
-    # os module doesn't have yet have cpu_count in py2
-    try:
-        args.num_cpu = os.cpu_count()
-    except AttributeError:
-        pass
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+        handler.setLevel(logging.DEBUG)
+
+    # default measurements list
+    measurement_class_list = []
+
+    # default configuration parameters 
+    config_kwargs = {}
 
     if args.config_file is not None:  
         # if config file not in local directory, temporarily extend path to its location
@@ -145,96 +162,50 @@ if __name__ == "__main__":
         if hasattr(config_module,'measurement_class_list'):
             measurement_class_list = config_module.measurement_class_list
         else:
-            sys.stderr.write(args.config_file + ' does not define "measurement_class_list"; no measurements will be run.\n    ')
+            logger.error(args.config_file + ' does not define "measurement_class_list"; no measurements will be run.\n    ')
         if hasattr(config_module,'config_kwargs'):
             config_kwargs = config_module.config_kwargs
     else: 
-        sys.stderr.write('No configuration file specified; no measurements will be run.\n')
+        logger.info('No configuration file specified; no measurements will be run.\n')
 
-    twitter_fmt_str = "%Y-%m-%dT%H:%M:%S.000Z"
 
     if args.bucket_size == "second":
         time_bucket_size_in_sec = 1 
-        dt_format = "%Y%m%d%H%M%S"
-        def get_time_bucket(tweet_time):
-            time_bucket_key = "{0:04d}{1:02d}{2:02d}{3:02d}{4:02d}{5:02d}".format(tweet_time.year
-                    ,tweet_time.month
-                    ,tweet_time.day
-                    ,tweet_time.hour
-                    ,tweet_time.minute
-                    ,tweet_time.second
-                    )
-            return time_bucket_key
+        dt_bucket_format = "%Y%m%d%H%M%S"
     elif args.bucket_size == "minute":
         time_bucket_size_in_sec = 60 
-        dt_format = "%Y%m%d%H%M"
-        def get_time_bucket(tweet_time):
-            time_bucket_key = "{0:04d}{1:02d}{2:02d}{3:02d}{4:02d}".format(tweet_time.year
-                    ,tweet_time.month
-                    ,tweet_time.day
-                    ,tweet_time.hour
-                    ,tweet_time.minute
-                    )
-            return time_bucket_key
+        dt_bucket_format = "%Y%m%d%H%M"
     elif args.bucket_size == "hour":
         time_bucket_size_in_sec = 3600 
-        dt_format = "%Y%m%d%H"
-        def get_time_bucket(tweet_time):
-            time_bucket_key = "{0:04d}{1:02d}{2:02d}{3:02d}".format(tweet_time.year
-                    ,tweet_time.month
-                    ,tweet_time.day
-                    ,tweet_time.hour
-                    )
-            return time_bucket_key
+        dt_bucket_format = "%Y%m%d%H"
     elif args.bucket_size == "day":
         time_bucket_size_in_sec = 3600*24    
-        dt_format = "%Y%m%d"
-        def get_time_bucket(tweet_time):
-            time_bucket_key = "{0:04d}{1:02d}{2:02d}".format(tweet_time.year
-                    ,tweet_time.month
-                    ,tweet_time.day
-                    )
-            return time_bucket_key
-    elif args.bucket_size == "week":
-        dt_format = "%Y%W%w"
-        def get_time_bucket(tweet_time):
-            # this week number is usually intuitive, but not always;
-            # fine for time series analysis
-            # https://en.wikipedia.org/wiki/ISO_week_date
-            year,week,weekday = tweet_time.isocalendar()
-            time_bucket_key = "{:04d}{:02d}0".format(year 
-                    ,week
-                    ,weekday
-                    )
-            return time_bucket_key
-        ## TODO this isn't correct on the last week of the year
-        time_bucket_size_in_sec = 3600*24*7 
-    # TODO (need to get correct dt formatting)
-    #elif args.bucket_size == "month":
-    #    time_bucket_size_in_sec = 3600*24*30     
-    #    dt_format = "%Y%m%d"
-        #def get_time_bucket(tweet_time):
-        #    time_bucket_key = "{0:04d}{1:02d}".format(tweet_time.year
-        #            ,tweet_time.month
-        #            )
-        #    return time_bucket_key
+        dt_bucket_format = "%Y%m%d"
     else:
-        # some sort of exception 
-        raise ValueError("Bucket size '{}' doesn't make sense".format(args.bucket_size)) 
-
+        raise ValueError("Time bucket size '{}' is not implemented".format(args.bucket_size)) 
 
     ## process the Tweets 
     data = []
     if args.input_files is None: 
-        # we're reading from stdin and running single-thread
-        data.append( aggregate(sys.stdin,get_time_bucket,config_kwargs,args.keep_empty_entries) )
+        # we're reading from stdin and running a single-process
+        data.append( aggregate(sys.stdin,
+            TWITTER_DT_FORMAT_STR,
+            dt_bucket_format,
+            config_kwargs,
+            measurement_class_list,
+            args.keep_empty_entries) )
     else:
-        # we will process each input file separately in a multiprocessing Process
+        # we will process each input file in a separate process
         mapping_results = []
         pool = multiprocessing.Pool(processes=args.num_cpu)
         for chunk_idx, file_name in enumerate(args.input_files): 
             logger.debug("Submitting chunk " + str(chunk_idx))
-            mapping_results.append( pool.apply_async(aggregate_file,(file_name,get_time_bucket,config_kwargs,args.keep_empty_entries) ) ) 
+            mapping_results.append( pool.apply_async(aggregate_file,(file_name,
+                TWITTER_DT_FORMAT_STR,
+                dt_bucket_format,
+                config_kwargs,
+                measurement_class_list,
+                args.keep_empty_entries) ) ) 
 
         # collect results as they finish
         while len(mapping_results) > 0:
@@ -255,7 +226,7 @@ if __name__ == "__main__":
     output_list = []
     for time_bucket_key,measurements in combined_data.items():
         # the format of this string must be parsable by dateutil.parser.parse
-        time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_format).strftime('%Y%m%d%H%M%S')
+        time_bucket_start = datetime.datetime.strptime(time_bucket_key,dt_bucket_format).strftime('%Y%m%d%H%M%S')
         for measurement in measurements:
             for count,counter_name in measurement.get():
                 csv_string = u'{0:d},{1},{2},{3:s}'.format(int(time_bucket_start),
