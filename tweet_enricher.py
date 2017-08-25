@@ -47,7 +47,7 @@ for line in sys.stdin:
         tweet = json.loads(line)
     except ValueError:
         continue
-    # skip Tweets without body
+    
     if 'body' not in tweet:
         continue
 
@@ -56,6 +56,7 @@ for line in sys.stdin:
 
     for cls_instance in class_instance_list:
         cls_instance.enrich(tweet)
+    
     try:
         sys.stdout.write(json.dumps(tweet) + '\n') 
     except IOError:
