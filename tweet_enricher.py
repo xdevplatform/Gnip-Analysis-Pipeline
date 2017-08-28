@@ -55,7 +55,10 @@ for line in sys.stdin:
         continue
 
     for cls_instance in class_instance_list:
-        cls_instance.enrich(tweet)
+        enriched_tweet = cls_instance.enrich(tweet)
+        # the old-style enrichment base class returned None
+        if enriched_tweet is not None:
+            tweet = enriched_tweet
     try:
         sys.stdout.write(json.dumps(tweet) + '\n') 
     except IOError:
