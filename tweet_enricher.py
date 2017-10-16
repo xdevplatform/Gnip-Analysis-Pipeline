@@ -6,7 +6,7 @@ import os
 import sys
 import threading
 import queue
-import time 
+import time
 try:
     import ujson as json
 except ImportError:
