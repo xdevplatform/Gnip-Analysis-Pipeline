@@ -7,14 +7,20 @@ import sys
 import threading
 import queue
 import time
+import logging
+import multiprocessing as mp
 try:
     import ujson as json
 except ImportError:
     import json
 
-def thread_worker_func(enrichment_class,enrichment_idx,thread_idx):
+logging.basicConfig(level=logging.WARN, 
+        format='%(asctime)s %(module)s:%(lineno)s - %(levelname)s - %(message)s'
+        )
+
+def worker_func(enrichment_class,enrichment_idx,worker_idx):
     """
-    This function runs on a new thread, gets from an input queue,
+    This function runs on a new worker, gets from an input queue,
     enriches tweets with one enrichment, and puts to an output queue. 
 
     Parameters
@@ -22,20 +28,27 @@ def thread_worker_func(enrichment_class,enrichment_idx,thread_idx):
     enrichment_class : class definition object
     enrichment_idx : int 
         Index of enrichment in enrichment list
-    thread_idx : int
-        Index of thread for this enrichment
+    worker_idx : int
+        Index of worker for this enrichment
     """
 
     enrichment_class_instance = enrichment_class()
     input_q = queue_pool[enrichment_idx]
     output_q = queue_pool[enrichment_idx+1]
 
+    logging.info(f"Entered worker {worker_idx}") 
     while True:
-        tweet = input_q.get()
+        try:
+            tweet = input_q.get() 
+        except TypeError:
+            input_q.task_done()
+            continue
 
         if tweet is None: # this is the signal to exit
+            logging.info(f"Worker {worker_idx} got None") 
             input_q.task_done()
             break
+        logging.debug(f"Worker {worker_idx} got tweet {tweet['id']}")
         
         enriched_tweet = enrichment_class_instance.enrich(tweet)
         if enriched_tweet is not None:
@@ -43,31 +56,46 @@ def thread_worker_func(enrichment_class,enrichment_idx,thread_idx):
         
         output_q.put(tweet)
         input_q.task_done()
+    logging.info(f"Exiting worker {worker_idx}")
     
-def output_worker_func():
+def output_func():
     """
-    Serializes enriched Tweet objects; runs on a dedicated thread
+    Serializes enriched Tweet objects; runs on a dedicated worker
     """
 
     input_q = queue_pool[-1]
+    logging.info("entered output worker") 
+    counter = 0
 
     while True:
 
         tweet = input_q.get()
         if tweet is None: # this is the signal to exit
+            logging.info(f"Output worker got None") 
+            input_q.task_done()
             break
+
+        counter += 1
+        if args.verbose and counter%1000==0:
+            logging.warn(f"{counter} tweets enriched\n")
         
         out_str = json.dumps(tweet) + '\n' 
         try:
             sys.stdout.write(out_str) 
         except BrokenPipeError: # check for closed output pipe
             break
+    logging.info(f"Exiting output worker")
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c','-configuration-file',dest='config_file',default=None,help='python file defining "enrichment_class_list"') 
+    parser.add_argument('-c','--configuration-file',dest='config_file',default=None,
+            help='python file defining "enrichment_class_list"') 
+    parser.add_argument('-p','--use-processes',dest='use_processes',action='store_true',default=False,
+            help='use processes instread of threads') 
+    parser.add_argument('-v','--display-counter',dest='verbose',action='store_true',default=False,
+            help='display counter of enriched tweets') 
     args = parser.parse_args()
 
     if args.config_file is None:
@@ -89,22 +117,31 @@ if __name__ == '__main__':
         else:
             sys.stderr.write(args.config_file + ' does not define "enrichment_class_list"; no enrichments will be run.\n')
 
-    input_q = queue.Queue(2)
+    if args.use_processes:
+        queue_type = mp.JoinableQueue
+        worker_type = mp.Process
+    else:
+        queue_type = queue.Queue
+        worker_type = threading.Thread
+
+    # set up workers and queues
+    input_q = queue_type(10)
     queue_pool = [input_q] # input queue is the first element of queue_pool
-    thread_pool_list = []
+    worker_pool_list = []
 
-    # create and start all enrichment threads
-    for enrichment_idx,(enrichment_class,n_threads) in enumerate(enrichment_class_list):
-        queue_pool.append(queue.Queue(n_threads*2 + 1))
-        thread_pool = [threading.Thread(target=thread_worker_func,
-            args=(enrichment_class,enrichment_idx,i_thread)) 
-            for i_thread in range(n_threads)] 
-        [thread.start() for thread in thread_pool]
-        thread_pool_list.append(thread_pool)
+    # create and start all enrichment workers
+    for enrichment_idx,(enrichment_class,n_workers) in enumerate(enrichment_class_list):
+        logging.info("Starting {} workers for enrichment {}".format(n_workers,enrichment_class.__name__))
+        queue_pool.append(queue_type(n_workers*2 + 1))
+        worker_pool = [worker_type(target=worker_func,
+            args=(enrichment_class,enrichment_idx,worker_idx)) 
+            for worker_idx in range(n_workers)] 
+        [worker.start() for worker in worker_pool]
+        worker_pool_list.append(worker_pool)
 
-    # create and start output thread
-    output_thread = threading.Thread(target=output_worker_func)
-    output_thread.start()
+    # create and start output worker
+    output_worker = worker_type(target=output_func)
+    output_worker.start()
 
     ## main loop over tweets
     for line in sys.stdin: 
@@ -119,17 +156,17 @@ if __name__ == '__main__':
 
 
     # send the "all done" signals to flush the queues 
-    # and join the queues and threads
+    # and join the queues and workers
     
-    for enrichment_idx,(enrichment_class,n_threads) in enumerate(enrichment_class_list):
-        # cause the worker functions on each thread to exit
-        for i in range(n_threads):
+    for enrichment_idx,(enrichment_class,n_workers) in enumerate(enrichment_class_list):
+        # cause the worker functions on each worker to exit
+        for i in range(n_workers):
             queue_pool[enrichment_idx].put(None)
         # join this enrichment's input queue
         queue_pool[enrichment_idx].join()
-        # join this enrichment's threads
-        [thread.join() for thread in thread_pool_list[enrichment_idx]]
+        # join this enrichment's workers
+        [worker.join() for worker in worker_pool_list[enrichment_idx]]
     
     queue_pool[-1].put(None)
-    output_thread.join()
+    output_worker.join()
    
