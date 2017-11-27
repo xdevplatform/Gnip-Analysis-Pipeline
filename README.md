@@ -1,12 +1,12 @@
 # Overview
 
 This repository contains a suite of Python scripts that reads JSON-formatted Tweet data,
-enriches the tweet payloads with model-based metadata, builds time series based
-on programmable counters, and returns CSV-formatted data. 
+enriches the tweet payloads with metadata,  and builds time series based
+on programmable counters. 
 
 While this package contains to core elements of the pipeline, we have
 placed many useful configuration tools in 
-[Gnip-Analysis-Config](https://github.com/jeffakolb/Gnip-Analysis-Config).
+[Gnip-Analysis-Config](https://github.com/tw-ddis/Gnip-Analysis-Config).
 
 # Installation
 
@@ -28,29 +28,39 @@ be generalized to perform a variety of measurements on a set of Tweet payloads.
 
 Because Tweet enrichment can be easily parallelized and because the resulting
 metadata can be counted and evaluated, we usually enrich before counting and
-evaluating. This is not strictly necessary, for example, when the Tweet analysis 
-functions only on data in the original Gnip payload.
+evaluating. This is not strictly necessary, for example, when the time series
+generation functions only on data in the original Twitter payload.
 
 ## Enrichment
 
 In this step, we enrich individual Tweets with metadata, derived from the
 current Tweet payload, potentially augmented by an external model.
 
-We do enrichment by piping Tweet objects to the `tweet_enricher.py` script.
+We do enrichment by piping JSON-formatted Tweet strings to the
+`tweet_enricher.py` script.
 
-Enrichments are defined by classes that implement an `enrich` method,
-which has one argument: the dictionary representing a Tweet. 
-We configure enrichments by providing a valid Python file via the `-c` option
-of the enriching script. To specify the enrichments to be run, 
-this configuration file defines a list variable called `class_list`, which
-contains a sequence of enrichment class definition objects. 
-Because the configuration file is valid Python, enrichment classes 
-can be defined locally or imported. 
-See `example/my_enrichments.py` for an example.
+Enrichments are defined by classes that implement an `enrich` method, which has
+one argument: the dictionary representing a Tweet.  We configure enrichments by
+providing a valid Python file via the `-c` option of the enriching script. To
+specify the enrichments to be run, this configuration file defines a list
+variable called `class_list`, which contains a sequence of tuples. The first
+element is the enrichment class definition, while the second is used to set the
+parallelism factor in the concurrent mode (see below). Because the
+configuration file is valid Python, enrichment classes can be defined locally
+or imported.  See `example/my_enrichments.py` for an example.
 
 Other examples and helper classes are in
-the `gnip_analysis_config/enrichment/` directory of 
-[Gnip-Analysis-Tools](https://github.com/jeffakolb/Gnip-Analysis-Tools/).
+the `gnip_analysis_tools/enrichment/` directory of 
+[Gnip-Analysis-Tools](https://github.com/tw-ddis/Gnip-Analysis-Tools/).
+
+### Concurrent operation
+
+The default mode of operation for enriching is a concurrent scheme, in which
+queues act as buffers between each enrichment operation, and each enrichment
+operation can be parallelized via multiple Python threads or processes. The
+`-p` option select processes instead of the default, which is to use threads.
+The `-s` option turns off all concurrency and runs each tweet sequentially
+through the series of enrichment operations.
 
 ## Time Series Construction
 
@@ -81,18 +91,19 @@ config file.  We configure which measurements to run via the
 Since we often want to define many measurement classes programatically,
 we provide tools for this, and many examples, 
 in the `gnip_analysis_config/measurement` directory of
-[Gnip-Analysis-Tools](https://github.com/jeffakolb/Gnip-Analysis-Tools/).
+[Gnip-Analysis-Tools](https://github.com/tw-ddis/Gnip-Analysis-Tools/).
 
 ## Trend Detection
 
 To do trend detection on your resulting time series data, use
-[Gnip-Trend-Detection](https://github.com/jeffakolb/Gnip-Trend-Detection),
+[Gnip-Trend-Detection](https://github.com/tw-ddis/Gnip-Trend-Detection),
 which is designed to accept data from this pipeline.
 
 # Example
 
-This example assumes that you have installed the package in your Python 
-environment, have cloned the repo,
+This example assumes that you have 
+have cloned the repo,
+installed the package in your Python environment, 
 and that you are working from a test directory called "TEST". 
 From the `example` directory in the repo, copy 
 `dummy_tweets.json` to your test directory.
