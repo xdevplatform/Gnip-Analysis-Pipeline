@@ -10,4 +10,4 @@ class TestEnrichment(object):
             tweet['enrichments'] = {}
         tweet['enrichments'][self.__class__.__name__] = 1
 
-enrichment_class_list = [TestEnrichment]
+enrichment_class_list = [(TestEnrichment,1)]
